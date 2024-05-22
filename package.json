@@ -1,0 +1,40 @@
+{
+  "name": "browser-shell",
+  "version": "0.0.1",
+  "description": "Chrome extension to run a shell in browser",
+  "license": "GPL-3.0-or-later",
+  "author": "Noah Peart <noah.v.peart@gmail.com> (https://www.github.com/nverno)",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && vite build --mode development",
+    "build:tsc": "tsc && tsc-alias",
+    "build:lodash": "lodash include=chain",
+    "build:production": "tsc && vite build",
+    "dev": "vite --host",
+    "start": "ts-node ./src/index.ts"
+  },
+  "dependencies": {
+    "debug": "^4.3.4",
+    "jquery": "^3.7.1",
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.23",
+    "@types/debug": "^4.1.12",
+    "@types/jquery": "^3.5.30",
+    "@types/lodash": "^4.17.4",
+    "@types/node": "^20.12.12",
+    "autoprefixer": "^10.4.19",
+    "chrome-types": "^0.1.284",
+    "lodash-cli": "^4.17.5",
+    "postcss": "^8.4.38",
+    "postcss-import": "^16.1.0",
+    "postcss-nested": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "tsc-alias": "^1.8.10",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11",
+    "vite-tsconfig-paths": "^4.3.2"
+  }
+}

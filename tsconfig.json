@@ -1,0 +1,51 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ],
+    "useDefineForClassFields": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "module": "ESNext",
+    "isolatedModules": true,
+    "pretty": true,
+    "sourceMap": true,
+    "declaration": true,
+    "outDir": "dist",
+    "allowJs": true,
+    "noEmit": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "importHelpers": true,
+    "baseUrl": ".",
+    "paths": {
+      "~*": ["./src/*"]
+    },
+    "types": ["chrome-types"]
+  },
+  "include": [
+    "src",
+    "vite.config.ts",
+    "manifest.config.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ],
+  "ts-node": {
+    "compilerOptions": {
+      "module": "CommonJS",
+      "types": ["node", "chrome-types"],
+      "outDir": "./.ts-node",
+      "allowImportingTsExtensions": true,
+      "allowArbitraryExtensions": true
+    }
+  }
+}
