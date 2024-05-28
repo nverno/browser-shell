@@ -11,9 +11,9 @@ const MAX_OUTPUT_BUFFER: number = 1024
 export class Terminal {
   win: TerminalWindow;
   shell: BrowserShell;
-  bin: Commands;
+  bin: Commands = commands;
   $body: JQuery<HTMLBodyElement>;
-  $textarea: JQuery<HTMLElement>;
+  $textarea: JQuery<HTMLTextAreaElement>;
   partialCmd: string | number | string[] = '';
   lastAutocompleteIndex = 0;
   lastAutocompletePrefix = '';
@@ -21,7 +21,7 @@ export class Terminal {
   $historyMetadata: JQuery<HTMLElement>;
   history: { command: string, output: string[] }[] = [];
   historyIndex: number;
-
+  
   constructor(win: TerminalWindow, shell: BrowserShell, _options: any = {}) {
     this.win = win;
     this.shell = shell;
@@ -41,28 +41,18 @@ export class Terminal {
     // Clicking anywhere on terminal focuses prompt
     // XXX(5/27/24): shouldn't keep focusing when trying to select/copy stuff
     this.$body.on('click', () => this.focusPrompt());
-    this.bin = commands;
     this.setupBin();
     this.setupNewTerminalSession();
     this.initInput();
   }
 
   setupBin() {
-    // this.shell.commands ||= { terminal: {} };
-    // this.bin = chain({})
-    //   .extend(this.shell.commands.terminal)
-    //   .reduce((memo: any, value: any, key: string) => {
-    //     if (value.run) memo[key] = value;
-    //     return memo;
-    //   }, {})
-    //   .value();
     debug('Bin: %O', this.bin);
   }
 
   setupNewTerminalSession() {
     this.remote('getHistory', {}, (response: any) => {
       debug('setup history: %O', response);
-
       if (!this.history.length) {
         for (let command of response.commands) {
           this.history.unshift({
@@ -80,7 +70,6 @@ export class Terminal {
   }
 
   showPrompt() {
-    debug('showing prompt');
     this.$body.find(".prompt, textarea").show().trigger('focus');
   }
 
@@ -90,7 +79,6 @@ export class Terminal {
 
   showHistory(change: string) {
     debug('history: %O', this.history);
-
     if (change === 'up') {
       if (this.historyIndex === this.history.length) this.partialCmd = this.val();
       this.historyIndex -= 1;
@@ -128,27 +116,85 @@ export class Terminal {
     this.setVal('');
   }
 
+  /** Line editing commands */
+  handleEdit(e: JQuery.KeyDownEvent): boolean {
+    let pos = 0;
+    if (e.altKey) {
+      let dx = 1;
+      switch (e.code) {
+        case "KeyB": // backward word
+          dx = -1;
+          break;
+        case "KeyF": // forward word
+          break;
+        default:
+          return false;
+      }
+      const text = this.val();
+      const n = text.length;
+      pos = this.$textarea[0].selectionStart;
+      while (pos > 0 && pos < n && text[pos] === ' ')
+        pos += dx;
+      pos += dx;
+      while (pos > 0 && pos < n && text[pos] !== ' ')
+        pos += dx;
+      pos = Math.max(pos, 0);
+    } else if (e.ctrlKey) {
+      let dx = 1;
+      switch (e.code) {
+        case "KeyB": // backward char
+          dx = -1;   // fallthrough...
+        case "KeyF": // forward char
+          pos = this.$textarea[0].selectionStart + dx;
+          break;
+        case "KeyE": // end of line
+          pos = this.$textarea[0].textLength;
+          break;
+        case "KeyA": // beginning of line
+          pos = 0;
+          break;
+        case "KeyK": // kill to end of line
+          pos = -1;
+          this.setVal(this.val().substring(0, this.$textarea[0].selectionStart));
+          break;
+        default:
+          return false;
+      }
+    } else {
+      return false;
+    }
+    e.preventDefault();
+    if (pos >= 0)
+      this.$textarea[0].setSelectionRange(pos, pos);
+    debug("handled edit: alt=%s ctrl=%s code=%s", e.altKey, e.ctrlKey, e.code);
+    return true;
+  }
+
   initInput() {
     this.$textarea.on("keydown", (e: JQuery.KeyDownEvent) => {
+      if (this.handleEdit(e)) return;
       debug("%o", e);
+      
       let propagate = false;
       let autocompleteIndex = 0;
       let autocompletePrefix = '';
 
-      switch (e.code) {
+      const key = e.altKey
+        ? (e.code === "KeyP" ? "ArrowUp" : e.code === "KeyN" ? "ArrowDown" : e.code)
+        : e.code;
+
+      switch (key) {
         case "Enter":
           this.process();
           break;
 
-        case "ArrowUp" || (e.ctrlKey && "KeyP"):
+        case "ArrowUp":
           e.preventDefault();
-          debug("Previous history");
           this.showHistory('up');
           break;
 
-        case ("ArrowDown" || (e.ctrlKey && "KeyN")):
+        case "ArrowDown":
           e.preventDefault();
-          debug("Next history");
           this.showHistory('down');
           break;
 
@@ -205,7 +251,7 @@ export class Terminal {
     if (output) {
       this.$historyMetadata.html(
         `output#${index}: ` +
-        escapeAndLinkify(truncate(output.join(", "), 100))).show();
+          escapeAndLinkify(truncate(output.join(", "), 100))).show();
     } else {
       this.$historyMetadata.hide();
     }
@@ -215,7 +261,6 @@ export class Terminal {
     const text = this.val().trim();
 
     if (text) {
-      debug('Processing: %s', text);
       this.write("$ " + text, 'input');
       this.clearInput();
 
@@ -286,8 +331,6 @@ export class Terminal {
   recordCommand(command: string, output: string[], callback?: (response: any) => void) {
     if (DONT_RECORD[command])
       return;
-
-    debug('adding history: %s, %s', command, output);
     this.history.push({ command, output });
     this.historyIndex = this.history.length;
     this.remote('recordCommand', { command, output: output.join("\n") }, callback);
@@ -299,9 +342,9 @@ export class Terminal {
     callback: (response: any) => void = (response) => {
       if (response.errors) this.error(response.errors);
     }) {
-    debug('send background: %s, %o, %O', cmd, options, callback);
-    remoteCommand(cmd, options, callback);
-  }
+      debug('send background: %s, %o, %O', cmd, options, callback);
+      remoteCommand(cmd, options, callback);
+    }
 
   clear() {
     this.$history.empty();
