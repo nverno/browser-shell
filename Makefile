@@ -6,7 +6,7 @@ VENDOR  = $(PUBLIC)/vendor
 SRC     = $(shell find src -type f -regex '.*[.]\(ts\|css\)$$') \
 		manifest.config.ts package.json vite.config.js
 RUNNER  = bin/run.py
-
+RUN_URL ?= https://example.com
 
 .PHONY: all build build-public install refresh-extension run
 all: install build
@@ -27,7 +27,7 @@ refresh-extension: ## Extensions Reloader endpoint
 	$(info refreshed extensions)
 
 run: $(TARGET)  ## Load unpacked extension into new chromedriver session
-	$(RUNNER) --path $(CURDIR)/$(TARGET)
+	$(RUNNER) --path $(CURDIR)/$(TARGET) --url $(RUN_URL)
 
 
 # Vendor libs

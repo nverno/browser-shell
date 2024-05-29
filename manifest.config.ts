@@ -25,8 +25,10 @@ export default defineManifest(async () => {
       "webNavigation",
       "clipboardRead",
       "clipboardWrite",
+      "downloads",
+      "downloads.open",
     ],
-    host_permissions: ['https://*/*', 'http://*/*'],
+    host_permissions: ["<all_urls>"], // 'https://*/*', 'http://*/*'],
     content_scripts: [
       {
         "matches": [
@@ -45,20 +47,21 @@ export default defineManifest(async () => {
           // "terminal.css",
           "vendor/selectorgadget_combined.js",
           "vendor/selectorgadget_combined.css",
-          "assets/**/*.map",
           "assets/**/*.js",
           "assets/**/*.css",
-          "styles/**/*.css",
         ],
         "matches": [
           "<all_urls>"
         ],
+        "use_dynamic_url": true,
       },
     ],
     "action": {
       "default_icon": {
-        "19": "images/bshell_19x19.png",
-        "38": "images/bshell_38x38.png"
+        "16": "images/bshell_16x16.png",
+        "32": "images/bshell_32x32.png",
+        "48": "images/bshell_48x48.png",
+        "128": "images/bshell_128x128.png",
       },
       "default_title": "BShell"
     }

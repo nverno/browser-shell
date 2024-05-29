@@ -4,6 +4,7 @@ interface LoadPathOptions {
 }
 
 interface LoadOptions {
+  target?: HTMLElement;
   reload?: boolean;
   loads?: string;
   then?: () => void;
@@ -34,11 +35,20 @@ export const whenTrue = (condition: () => boolean, callback: () => void): void =
   go();
 };
 
+// export const executeScript = (src: string, opts?: any) => {
+//   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+//     chrome.scripting.executeScript({
+//       target: { tabId: tabs[0].id },
+//       files: ["vendor/selectorgadget_combined.js"],
+//     });
+//   })
+// };
+
 export const loadScript = (src: string, opts: LoadOptions = {}) => {
   const script = document.createElement('SCRIPT');
   script.setAttribute('type', 'text/javascript');
   script.setAttribute('src', forChrome(src + (opts.reload ? `?r=${Math.random()}` : '')));
-  attachElement(script);
+  attachElement(script, opts.target);
   if (opts.loads && opts.then) {
     whenTrue(() => !!window[opts.loads], opts.then);
   }
@@ -59,7 +69,7 @@ export const forChrome = (path: string): string => {
 
 const pathCache = {};
 
-export const load = (path: string, opts: LoadPathOptions | null = {}) => {
+export const unsafeLoad = (path: string, opts: LoadPathOptions | null = {}) => {
   if (pathCache[path]) {
     opts.callback?.();
   } else {

@@ -6,7 +6,7 @@ const debug = Debug('parser');
 
 export interface Command {
   desc: string;
-  run: (stdin: Stream | null, stdout: Stream, env: CommandEnv, args?: any) => void;
+  run: (stdin: Stream | null, stdout: Stream, env: CommandEnv, args?: any) => void|Promise<void>;
 }
 
 export type Commands = { [key: string]: Command }

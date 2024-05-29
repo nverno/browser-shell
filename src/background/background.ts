@@ -1,10 +1,64 @@
-import { Debug } from '~utils';
+import { Debug, isNumber } from '~utils';
 const debug = Debug('background');
 
 interface IRequest {
   command: string;
   payload: any;
 };
+
+async function getCurrentTab(opts = { active: true, lastFocusedWindow: true }) {
+  // `tab` will either be a `tabs.Tab` instance or `undefined`.
+  let [tab] = await chrome.tabs.query(opts);
+  return tab;
+}
+
+async function unregisterContentScripts(
+  filter?: chrome.scripting.ContentScriptFilter
+) {
+  try {
+    if (!filter) {
+      const scripts = await chrome.scripting.getRegisteredContentScripts();
+      filter = { ids: scripts.map(script => script.id) };
+    }
+    return chrome.scripting.unregisterContentScripts(filter);
+  } catch (error) {
+    throw new Error(
+      "An unexpected error occurred while unregistering dynamic content scripts.",
+      { cause: error }
+    );
+  }
+}
+
+function maybeOpen(id) {
+  var openWhenComplete = [];
+  try {
+    openWhenComplete = JSON.parse(localStorage.openWhenComplete);
+  } catch (e) {
+    localStorage.openWhenComplete = JSON.stringify(openWhenComplete);
+  }
+  var openNowIndex = openWhenComplete.indexOf(id);
+  if (openNowIndex >= 0) {
+    chrome.downloads.open(id);
+    openWhenComplete.splice(openNowIndex, 1);
+    localStorage.openWhenComplete = JSON.stringify(openWhenComplete);
+  }
+}
+
+function openWhenComplete(downloadId) {
+  var ids = [];
+  try {
+    ids = JSON.parse(localStorage.openWhenComplete);
+  } catch (e) {
+    localStorage.openWhenComplete = JSON.stringify(ids);
+  }
+  if (ids.indexOf(downloadId) >= 0) {
+    return;
+  }
+  ids.push(downloadId);
+  localStorage.openWhenComplete = JSON.stringify(ids);
+}
+
+
 
 export class BackgroundPage {
   STORED_KEYS: string[] = ['commands'];
@@ -41,21 +95,8 @@ export class BackgroundPage {
         debug("Remote received from %s (%s): %j",
           sender.tab?.url, sender.tab?.incognito && 'incognito', request);
 
-        const handler = () => {
+        const handler = async () => {
           switch (request.command) {
-            // case 'copy':
-            //   putInClipboard(request.payload.text);
-            //   sendResponse();
-            //   break;
-
-            // case 'paste':
-            //   sendResponse({ text: getFromClipboard() });
-            //   break;
-
-            // case 'compile':
-            //   debug('compile: unimplemented');
-            //   break;
-
             case 'getHistory':
               sendResponse({ commands: this.memory.commands || [] });
               break;
@@ -71,11 +112,64 @@ export class BackgroundPage {
                 .then((res) => {
                   debug('recorded: %o', res);
                   sendResponse();
-                });
+                })
+                .catch(errors => sendResponse({ errors }));
+              break;
+
+            case 'insertCSS':
+              chrome.scripting.insertCSS({
+                target: { tabId: sender.tab.id },
+                ...request.payload
+              }).then(() => sendResponse())
+                .catch(errors => sendResponse({ errors }));;
+              break;
+
+            case 'removeCSS':
+              chrome.scripting.removeCSS({
+                target: { tabId: sender.tab.id },
+                ...request.payload,
+              }).then(() => sendResponse())
+                .catch(errors => sendResponse({ errors }));
+              break;
+
+            case 'executeScript':
+              const { payload: { target, ...opts } } = request
+              chrome.scripting
+                .executeScript({
+                  target: { tabId: sender.tab.id, ...target },
+                  ...opts,
+                })
+                .then(injectionResults => {
+                  for (const frameResult of injectionResults) {
+                    const { frameId, result } = frameResult;
+                    debug(`Frame ${frameId} result: %O`, result);
+                  }
+                  sendResponse({ result: injectionResults })
+                })
+                .catch(errors => sendResponse({ errors }));
+              break;
+
+            case 'unregisterScripts':
+              unregisterContentScripts(...request.payload)
+                .then(() => sendResponse({}))
+                .catch(errors => sendResponse({ errors }));
+              break;
+
+            case 'download':
+              chrome.downloads.download({
+                conflictAction: 'uniquify',
+                ...request.payload
+              })
+                .then((id) => {
+                  if (isNumber(id))
+                    openWhenComplete(id);
+                  sendResponse(id);
+                })
+                .catch(errors => sendResponse({ errors }));
               break;
 
             default:
-              sendResponse({ errors: "unknown command" });
+              sendResponse({ errors: `unknown command: ${request.command}` });
               break;
           }
         };

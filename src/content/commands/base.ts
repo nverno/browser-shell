@@ -73,6 +73,7 @@ export const baseCommands: { [key: string]: Command } = {
       const pattern = new RegExp(args, 'i');
       stdout.onReceiver(() => {
         stdin.onSenderClose(() => stdout.senderClose());
+
         stdin.receive((text, readyForMore) => {
           const matches = (String(text).split("\n").filter((line) => line.match(pattern)));
           if (matches.length > 0) {
@@ -107,7 +108,8 @@ export const baseCommands: { [key: string]: Command } = {
     desc: "Read once per second",
     run: (stdin, stdout, env, args) => {
       if (!stdin) {
-        return env.helpers.fail(env, stdout, "stdin required for tick");
+        env.helpers.fail(env, stdout, "stdin required for tick");
+        return;
       }
       stdout.onReceiver(() => {
         stdin.onSenderClose(() => stdout.senderClose());

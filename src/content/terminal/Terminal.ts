@@ -340,7 +340,7 @@ export class Terminal {
     cmd: string,
     options: any,
     callback: (response: any) => void = (response) => {
-      if (response.errors) this.error(response.errors);
+      if (response?.errors) this.error(response.errors);
     }) {
       debug('send background: %s, %o, %O', cmd, options, callback);
       remoteCommand(cmd, options, callback);

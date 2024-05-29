@@ -12,14 +12,18 @@ export const not = (func: () => boolean): () => boolean => {
   return () => !func();
 };
 
+export const isNumber = (n) => {
+  return !isNaN(parseFloat(n)) && isFinite(n);
+}
+
 export const remoteCommand = async (
   command: string,
   payload: RemotePayload,
-  callback: any = () => {}
+  callback: any = (res: any) => res
 ) => {
-  chrome.runtime.sendMessage(chrome.runtime.id, { command, payload }).then((res) => {
-    callback(res);
-  });
+  await chrome.runtime
+    .sendMessage(chrome.runtime.id, { command, payload })
+    .then((res) => { callback(res) });
 };
 
 export const escape = (text: string): string => {

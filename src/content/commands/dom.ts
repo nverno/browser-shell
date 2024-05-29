@@ -1,25 +1,9 @@
 import $ from "jquery";
-import { load, loadCSS, whenTrue } from '~utils';
+import { Debug, whenTrue, remoteCommand } from '~utils';
 import { Commands } from './CommandParser';
+const debug = Debug('dom');
 
 export const domCommands: Commands = {
-  text: {
-    desc: "Access the page's text",
-    run: (stdin, stdout, env, args) => {
-      args = args || 'body';
-      stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (selectors: string[]) => {
-          selectors.forEach((selector) => {
-            $(selector).each((_, item) => {
-              stdout.send($(item).text());
-            });
-          });
-          stdout.senderClose();
-        });
-      });
-    },
-  },
-
   selection: {
     desc: "Get the current document selection",
     run: (stdin, stdout, env) => {
@@ -32,16 +16,20 @@ export const domCommands: Commands = {
     },
   },
 
-  jquery: {
-    desc: "Access the page's dom",
+  text: {
+    desc: "Access the page's text",
     run: (stdin, stdout, env, args) => {
       args = args || 'body';
       stdout.onReceiver(() => {
         env.helpers.argsOrStdin([args], stdin, (selectors: string[]) => {
           selectors.forEach((selector) => {
-            $(selector).each((_, elem) => {
-              stdout.send($(elem) as any);
-            });
+            try {
+              $(selector).each((_, elem) => {
+                stdout.send($(elem).text());
+              });
+            } catch (error) {
+              env.terminal.error(error);
+            }
           });
           stdout.senderClose();
         });
@@ -49,22 +37,91 @@ export const domCommands: Commands = {
     },
   },
 
+  '.': {
+    desc: "Select object attrs, eg. 'jquery a | . href'",
+    run: (stdin, stdout, env, args) => {
+      if (!stdin) {
+        env.helpers.fail(env, stdout, "stdin required");
+        return;
+      }
+      stdout.onReceiver(() => {
+        stdin.onSenderClose(() => stdout.senderClose());
+        stdin.receive((elems, readyForMore) => {
+          try {
+            stdout.send($(elems).attr(args));
+            readyForMore();
+          } catch (error) {
+            env.terminal.error(error);
+            stdin.receiverClose();
+          }
+        });
+      });
+    }
+  },
+
+  jquery: {
+    desc: "Access the page's dom",
+    run: (stdin, stdout, env, args) => {
+      args = args || 'body';
+      stdout.onReceiver(() => {
+        env.helpers.argsOrStdin([args], stdin, (selectors: string[]) => {
+          selectors.forEach((selector) => {
+            try {
+              $(selector).each((_, elem) => {
+                stdout.send(elem);
+              });
+            } catch (error) {
+              env.terminal.error(error);
+            }
+          });
+          stdout.senderClose();
+        });
+      });
+    }
+  },
+
+  download: {
+    desc: "Download urls",
+    run: (stdin, stdout, env, args) => {
+      stdout.onReceiver(() => {
+        env.helpers.argsOrStdin([args], stdin, (urls) => {
+          debug('Downloading: %s', urls);
+          urls.forEach(async (url) => {
+            await remoteCommand('download', { url }, (id) => {
+              stdout.send(id);
+            });
+          });
+          stdout.senderClose();
+        });
+      });
+    }
+  },
+  
   selectorgadget: {
     desc: "Launch selectorGadget",
     run: (stdin, stdout, env) => {
-      stdout.onReceiver(() => {
-        env.terminal.hide();
-        loadCSS("vendor/selectorgadget/selectorgadget_combined.css");
-        load("vendor/selectorgadget/selectorgadget_combined.js", {
-          callback: () => {
-            // FIXME:
-            // SelectorGadget.toggle();
-          }
-        });
+      stdout.onReceiver(async () => {
+        let SelectorGadget = (window as any)?.SelectorGadget;
+        if (typeof SelectorGadget == "undefined") {
+          remoteCommand('insertCSS', {
+            files:["vendor/selectorgadget_combined.css"]
+          }, () => debug('inserted selectorgadget_combined.css'));
+          await remoteCommand('executeScript', {
+            target: { allFrames: true },
+            files: ["vendor/selectorgadget_combined.js"],
+          }, (res) => {
+            SelectorGadget = (window as any).SelectorGadget;
+            debug('SelectorGadget loaded: %O', SelectorGadget);
+          });
+        }
+
+        env.terminal.hide()
+        SelectorGadget.toggle({ analytics: false });
 
         whenTrue(() =>
-          $("#selectorgadget_path_field").length > 0 || env.interrupt, () => {
-            let lastVal: string | null = null;
+          env.interrupt || $("#selectorgadget_path_field").length > 0,
+          () => {
+            let lastVal: string;
             const interval = setInterval(() => {
               const val = $("#selectorgadget_path_field").val() as string;
               if (val !== "No valid path found.") {
@@ -72,7 +129,8 @@ export const domCommands: Commands = {
               }
             }, 100);
             whenTrue(() =>
-              $("#selectorgadget_path_field").length === 0 || env.interrupt, () => {
+              env.interrupt || $("#selectorgadget_path_field").length === 0,
+              () => {
                 clearInterval(interval);
                 env.terminal.show();
                 stdout.send(lastVal || 'unknown');

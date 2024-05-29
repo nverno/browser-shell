@@ -3,8 +3,8 @@ const debug = Debug('stream');
 
 export class Stream<T = any> {
   name: string;
-  senderClosed: boolean = false;
-  receiverClosed: boolean = false;
+  senderClosed = false;
+  receiverClosed = false;
   receiveCallback?: (text: T, readyForMore: () => void) => void;
   onSenderCloseCallback?: () => void;
   onReceiverCloseCallback?: () => void;
@@ -87,7 +87,7 @@ export class Stream<T = any> {
     if (this.receiverClosed) {
       throw new Error(`Cannot write to receiver-closed stream '${this.name}'`);
     }
-    this.log(`sent '%s'`, text);
+    // this.log(`sent: %O`, text);
     this.receiveCallback(text, readyForMore);
   }
 
