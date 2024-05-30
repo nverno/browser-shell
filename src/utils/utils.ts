@@ -1,9 +1,5 @@
 import $ from "jquery";
 
-interface RemotePayload {
-  [key: string]: any;
-}
-
 export const title = (): string => {
   return $("title").text().trim();
 };
@@ -15,16 +11,6 @@ export const not = (func: () => boolean): () => boolean => {
 export const isNumber = (n) => {
   return !isNaN(parseFloat(n)) && isFinite(n);
 }
-
-export const remoteCommand = async (
-  command: string,
-  payload: RemotePayload,
-  callback: any = (res: any) => res
-) => {
-  await chrome.runtime
-    .sendMessage(chrome.runtime.id, { command, payload })
-    .then((res) => { callback(res) });
-};
 
 export const escape = (text: string): string => {
   const entityMap: { [key: string]: string } = {

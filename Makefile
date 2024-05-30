@@ -3,13 +3,15 @@ TOP    := $(patsubst %/,%,$(abspath $(dir $(lastword $(MAKEFILE_LIST)))))
 TARGET  = dist
 PUBLIC  = public
 VENDOR  = $(PUBLIC)/vendor
-SRC     = $(shell find src -type f -regex '.*[.]\(ts\|css\)$$') \
+SRC     = $(shell find src -type f -regex '.*[.]\(ts\|js\|css\|html\)$$') \
+		$(wildcard *.html) \
 		manifest.config.ts package.json vite.config.js
 RUNNER  = bin/run.py
 RUN_URL ?= https://example.com
 
 .PHONY: all build build-public install refresh-extension run
 all: install build
+	@echo $(SRC)
 
 install: vendor-libs | node_modules
 

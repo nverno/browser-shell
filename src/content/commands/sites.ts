@@ -1,14 +1,21 @@
+import $ from 'jquery';
 import { Commands } from './CommandParser';
-import { remoteCommand, newWindow, domain } from '~utils';
+import { newWindow, domain } from '~utils';
 
-// const extendCommands = (commands: { [key: string]: Command }) => {
-//   for (const [key, value] of Object.entries(commands)) {
-//     // window.ChromePipe.Commands.Terminal[key] = value;
-//   }
-// };
+const commands: Commands = {
+  hn: {
+    desc: "Search hn",
+    run: (stdin, stdout, env, args) => {
+      stdout.onReceiver(() => {
+        env.helpers.argsOrStdin([args], stdin, (query) => {
+          const q = Array.isArray(query) ? query.join() : query
+          newWindow(`https://hn.algolia.com/?q=${encodeURIComponent(q)}`);
+          stdout.senderClose();
+        });
+      });
+    },
+  },
 
-// TODO(5/27/24):
-const otherCommands: Commands = {
   bugmenot: {
     desc: "Launch BugMeNot for this site, or the site passed",
     run: (stdin, stdout, env, args) => {
@@ -18,7 +25,10 @@ const otherCommands: Commands = {
         env.helpers.argsOrStdin([args], stdin, (domains) => {
           const domain = domains[0];
           if (!env.interrupt) {
-            window.open(`http://bugmenot.com/view/${domain}`, 'BugMeNot', 'height=500,width=700')?.focus();
+            window.open(
+              `http://bugmenot.com/view/${domain}`, 'BugMeNot',
+              'height=500,width=700'
+            )?.focus();
           }
           stdout.send(`Launching BugMeNot for '${domain}'`);
           stdout.senderClose();
@@ -31,7 +41,9 @@ const otherCommands: Commands = {
     desc: "Open a random page link",
     run: (stdin, stdout) => {
       stdout.onReceiver(() => {
-        newWindow(document.links[Math.floor(Math.random() * document.links.length)].href);
+        newWindow(
+          document.links[Math.floor(Math.random() * document.links.length)].href
+        );
         stdout.senderClose();
       });
     },
@@ -59,7 +71,8 @@ const otherCommands: Commands = {
               const files: { [key: string]: { content: string } } = {};
               files[args || 'data.txt'] = { content: rows.join("\n") };
               $.post("https://api.github.com/gists", JSON.stringify({
-                public: true, files
+                public: true,
+                files
               }))
                 .fail(() => stdout.senderClose())
                 .done((resp) => {
@@ -103,49 +116,6 @@ const otherCommands: Commands = {
               stdout.senderClose();
             });
           }
-        });
-      });
-    },
-  },
-
-};
-
-const commands: Commands = {
-  // TODO(5/27/24): fix
-  bgPage: {
-    desc: "Manually execute a background page command",
-    run: (stdin, stdout, env, args) => {
-      args = args || 'fetch';
-      stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (cmdLine) => {
-          const [cmd, ...rest] = cmdLine[0].split(" ");
-
-          const payload: { [key: string]: string } = {};
-          rest.forEach((segment: string) => {
-            const [k, v] = [
-              segment.slice(0, segment.indexOf(':')),
-              segment.slice(segment.indexOf(':') + 1)
-            ];
-            payload[k] = v;
-          });
-
-          remoteCommand(cmd, payload, (response) => {
-            stdout.send(JSON.stringify(response));
-            stdout.senderClose();
-          });
-        });
-      });
-    },
-  },
-
-  hn: {
-    desc: "Search hn",
-    run: (stdin, stdout, env, args) => {
-      stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (query) => {
-          const q = Array.isArray(query) ? query.join() : query
-          newWindow(`https://hn.algolia.com/?q=${encodeURIComponent(q)}`);
-          stdout.senderClose();
         });
       });
     },

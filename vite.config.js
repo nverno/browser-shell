@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
       rollupOptions: {
         input: {
+          'settings': 'settings.html',
           'terminal': 'src/content/terminal/terminal.css',
           'assets/utils': 'src/utils/index.ts',
           'assets/load': 'src/utils/load.ts',
@@ -28,12 +29,13 @@ export default defineConfig(({ mode }) => {
         output: {
           entryFileNames: '[name].js',
           chunkFileName: '[name].js',
-          assetFileNames: ({ name }) => {
-            if (name.endsWith('.css')) {
-              return '[name][extname]';
-            }
-            return '[name]-[hash]';
-          },
+          assetFileNames: '[name].[ext]',
+          //   ({ name }) => {
+          //   if (name.endsWith('.css')) {
+          //     return '[name][extname]';
+          //   }
+          //   return '[name]-[hash]';
+          // },
         },
       },
     },

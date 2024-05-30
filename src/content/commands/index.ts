@@ -3,10 +3,10 @@ export * from './Stream';
 
 import baseCommands from './base';
 import domCommands from './dom';
-import moreCommands from './assorted';
+import siteCommands from './sites';
 
 export const commands = {
   ...baseCommands,
   ...domCommands,
-  ...moreCommands,
+  ...siteCommands,
 };

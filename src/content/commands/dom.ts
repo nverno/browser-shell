@@ -1,5 +1,5 @@
 import $ from "jquery";
-import { Debug, whenTrue, remoteCommand } from '~utils';
+import { Debug, whenTrue, sendMessage } from '~utils';
 import { Commands } from './CommandParser';
 const debug = Debug('dom');
 
@@ -87,7 +87,7 @@ export const domCommands: Commands = {
         env.helpers.argsOrStdin([args], stdin, (urls) => {
           debug('Downloading: %s', urls);
           urls.forEach(async (url) => {
-            await remoteCommand('download', { url }, (id) => {
+            await sendMessage('download', { url }, (id) => {
               stdout.send(id);
             });
           });
@@ -103,10 +103,10 @@ export const domCommands: Commands = {
       stdout.onReceiver(async () => {
         let SelectorGadget = (window as any)?.SelectorGadget;
         if (typeof SelectorGadget == "undefined") {
-          remoteCommand('insertCSS', {
+          sendMessage('insertCSS', {
             files:["vendor/selectorgadget_combined.css"]
           }, () => debug('inserted selectorgadget_combined.css'));
-          await remoteCommand('executeScript', {
+          await sendMessage('executeScript', {
             target: { allFrames: true },
             files: ["vendor/selectorgadget_combined.js"],
           }, (res) => {

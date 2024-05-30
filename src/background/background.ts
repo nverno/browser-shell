@@ -1,12 +1,8 @@
-import { Debug, isNumber } from '~utils';
-const debug = Debug('background');
+import { Debug, isNumber, IMessage } from '~utils';
+import { openWhenComplete } from './downloads';
+const debug = Debug('bg');
 
-interface IRequest {
-  command: string;
-  payload: any;
-};
-
-async function getCurrentTab(opts = { active: true, lastFocusedWindow: true }) {
+export async function getCurrentTab(opts = { active: true, lastFocusedWindow: true }) {
   // `tab` will either be a `tabs.Tab` instance or `undefined`.
   let [tab] = await chrome.tabs.query(opts);
   return tab;
@@ -29,40 +25,10 @@ async function unregisterContentScripts(
   }
 }
 
-function maybeOpen(id) {
-  var openWhenComplete = [];
-  try {
-    openWhenComplete = JSON.parse(localStorage.openWhenComplete);
-  } catch (e) {
-    localStorage.openWhenComplete = JSON.stringify(openWhenComplete);
-  }
-  var openNowIndex = openWhenComplete.indexOf(id);
-  if (openNowIndex >= 0) {
-    chrome.downloads.open(id);
-    openWhenComplete.splice(openNowIndex, 1);
-    localStorage.openWhenComplete = JSON.stringify(openWhenComplete);
-  }
-}
-
-function openWhenComplete(downloadId) {
-  var ids = [];
-  try {
-    ids = JSON.parse(localStorage.openWhenComplete);
-  } catch (e) {
-    localStorage.openWhenComplete = JSON.stringify(ids);
-  }
-  if (ids.indexOf(downloadId) >= 0) {
-    return;
-  }
-  ids.push(downloadId);
-  localStorage.openWhenComplete = JSON.stringify(ids);
-}
-
-
+const STORED_KEYS: string[] = ['commands'];
 
 export class BackgroundPage {
-  STORED_KEYS: string[] = ['commands'];
-  memory: { [key: string]: any } = this.STORED_KEYS.reduce(
+  memory: { [key: string]: any } = STORED_KEYS.reduce(
     (acc, k) => ({ [k]: undefined, ...acc }), {}
   );
 
@@ -73,30 +39,28 @@ export class BackgroundPage {
   }
 
   updateMemory() {
-    chrome.storage.local.get(this.STORED_KEYS).then((items) => {
-      for (const key of this.STORED_KEYS) {
+    chrome.storage.local.get(STORED_KEYS).then((items) => {
+      for (const key of STORED_KEYS) {
         if (key in items)
           this.memory[key] = items[key];
       }
     });
   }
 
-  setStorage(variables: { [key: string]: any }) {
-    for (const [key, val] of Object.entries(variables)) {
-      this.memory[key] = val;
-    }
-    return chrome.storage.local.set(variables);
-  }
-
   listen() {
     chrome.runtime.onMessage.addListener(
-      (request: IRequest, sender, sendResponse: any) => {
-
+      (request: IMessage, sender, sendResponse: any) => {
+        if (request.target !== 'background') return;
         debug("Remote received from %s (%s): %j",
           sender.tab?.url, sender.tab?.incognito && 'incognito', request);
 
         const handler = async () => {
           switch (request.command) {
+            case 'echo':
+              debug('%j', request);
+              sendResponse();
+              break;
+
             case 'getHistory':
               sendResponse({ commands: this.memory.commands || [] });
               break;
@@ -106,33 +70,33 @@ export class BackgroundPage {
               this.memory.commands ||= [];
               this.memory.commands.unshift(request.payload);
               this.memory.commands = this.memory.commands.slice(0, 51);
-
               chrome.storage.local
                 .set({ commands: this.memory.commands })
-                .then((res) => {
-                  debug('recorded: %o', res);
-                  sendResponse();
-                })
+                .then(() => sendResponse())
                 .catch(errors => sendResponse({ errors }));
               break;
 
-            case 'insertCSS':
+            case 'insertCSS': {
+              const { payload: { target, ...opts } } = request
               chrome.scripting.insertCSS({
-                target: { tabId: sender.tab.id },
-                ...request.payload
+                target: { tabId: sender.tab.id, ...target },
+                ...opts
               }).then(() => sendResponse())
                 .catch(errors => sendResponse({ errors }));;
+            }
               break;
 
-            case 'removeCSS':
+            case 'removeCSS': {
+              const { payload: { target, ...opts } } = request
               chrome.scripting.removeCSS({
-                target: { tabId: sender.tab.id },
-                ...request.payload,
+                target: { tabId: sender.tab.id, ...target },
+                ...opts,
               }).then(() => sendResponse())
                 .catch(errors => sendResponse({ errors }));
+            }
               break;
 
-            case 'executeScript':
+            case 'executeScript': {
               const { payload: { target, ...opts } } = request
               chrome.scripting
                 .executeScript({
@@ -147,22 +111,26 @@ export class BackgroundPage {
                   sendResponse({ result: injectionResults })
                 })
                 .catch(errors => sendResponse({ errors }));
+            }
               break;
 
             case 'unregisterScripts':
-              unregisterContentScripts(...request.payload)
+              unregisterContentScripts(request.payload)
                 .then(() => sendResponse({}))
                 .catch(errors => sendResponse({ errors }));
               break;
 
+            case 'openTab':
+              
+              break;
             case 'download':
-              chrome.downloads.download({
-                conflictAction: 'uniquify',
-                ...request.payload
-              })
+              chrome.downloads
+                .download({
+                  conflictAction: 'uniquify',
+                  ...request.payload
+                } as chrome.downloads.DownloadOptions)
                 .then((id) => {
-                  if (isNumber(id))
-                    openWhenComplete(id);
+                  if (isNumber(id)) openWhenComplete(id);
                   sendResponse(id);
                 })
                 .catch(errors => sendResponse({ errors }));
@@ -170,11 +138,9 @@ export class BackgroundPage {
 
             default:
               sendResponse({ errors: `unknown command: ${request.command}` });
-              break;
           }
         };
-        setTimeout(handler, 10);
-
+        handler();
         // Return true to indicate async message passing:
         // http://developer.chrome.com/extensions/runtime#event-onMessage
         return true;

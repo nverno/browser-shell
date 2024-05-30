@@ -1,5 +1,5 @@
 import $ from 'jquery';
-import { Debug, escapeAndLinkify, truncate, remoteCommand } from '~utils';
+import { Debug, escapeAndLinkify, truncate, sendMessage } from '~utils';
 import { CommandParser, Commands, commands, type CommandEnvOpt } from '~content';
 import { BrowserShell } from '../BrowserShell';
 import { TerminalWindow } from './TerminalWindow';
@@ -343,7 +343,7 @@ export class Terminal {
       if (response?.errors) this.error(response.errors);
     }) {
       debug('send background: %s, %o, %O', cmd, options, callback);
-      remoteCommand(cmd, options, callback);
+      sendMessage(cmd, options, callback);
     }
 
   clear() {

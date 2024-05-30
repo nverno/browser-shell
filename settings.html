@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Browser Shell — Settings</title>
+        <link rel="stylesheet" type="text/css" href="./src/settings/settings.css">
+    </head>
+    <body>
+        <div class="container">
+            <form id="settings-form">
+                <div class="fieldset">
+                    <div class="li">
+                        <label for="debugPrefix">
+                            <span>Debug Prefix</span>
+                            <span class="input">
+                                <input type="text" id="debugPrefix" name="debugPrefix" />
+                            </span>
+                        </label>
+                    </div>
+                    <div class="li">
+                        <label for="openShell">
+                            <span>Open Shell</span>
+                            <span class="input">
+                                <input type="text" id="openShell" name="openShell" />
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                <button type="submit">Save Settings</button>
+            </form>
+        </div>
+        <script src="./src/settings/settings.ts" type="module"></script>
+    </body>
+</html>

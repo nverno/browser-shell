@@ -8,17 +8,17 @@ export default defineManifest(async () => {
     description: pkg.description,
     // default_locale: 'en',
     version: '0.0.1',
-    "icons": {
-      "16": "images/bshell_16x16.png",
-      "32": "images/bshell_32x32.png",
-      "48": "images/bshell_48x48.png",
-      "128": "images/bshell_128x128.png"
+    icons: {
+      16: "images/bshell_16x16.png",
+      32: "images/bshell_32x32.png",
+      48: "images/bshell_48x48.png",
+      128: "images/bshell_128x128.png"
     },
     background: {
       service_worker: 'src/background/index.ts',
       type: 'module',
     },
-    "permissions": [
+    permissions: [
       "scripting",
       'storage',
       "tabs",
@@ -31,18 +31,18 @@ export default defineManifest(async () => {
     host_permissions: ["<all_urls>"], // 'https://*/*', 'http://*/*'],
     content_scripts: [
       {
-        "matches": [
+        matches: [
           "<all_urls>"
         ],
-        "css": [],
-        "js": [
+        css: [],
+        js: [
           "src/content/content.ts",
         ]
       },
     ],
-    "web_accessible_resources": [
+    web_accessible_resources: [
       {
-        "resources": [
+        resources: [
           "*.css",
           // "terminal.css",
           "vendor/selectorgadget_combined.js",
@@ -50,20 +50,29 @@ export default defineManifest(async () => {
           "assets/**/*.js",
           "assets/**/*.css",
         ],
-        "matches": [
+        matches: [
           "<all_urls>"
         ],
-        "use_dynamic_url": true,
+        use_dynamic_url: true,
       },
     ],
-    "action": {
-      "default_icon": {
-        "16": "images/bshell_16x16.png",
-        "32": "images/bshell_32x32.png",
-        "48": "images/bshell_48x48.png",
-        "128": "images/bshell_128x128.png",
+    // commands: {
+    //   'open-shell': {
+    //     suggested_key: {
+    //       default: "Ctrl+Z",
+    //     },
+    //     description: "Open shell",
+    //   },
+    // },
+    action: {
+      default_icon: {
+        16: "images/bshell_16x16.png",
+        32: "images/bshell_32x32.png",
+        48: "images/bshell_48x48.png",
+        128: "images/bshell_128x128.png",
       },
-      "default_title": "BShell"
+      default_title: "BShell",
+      default_popup: "settings.html"
     }
   }
 })

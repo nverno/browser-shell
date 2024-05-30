@@ -1,4 +1,4 @@
-import { Debug } from '~utils';
+import { Debug, sendMessage } from '~utils';
 import { Command } from './CommandParser';
 
 const debug = Debug('base');
@@ -171,6 +171,32 @@ export const baseCommands: { [key: string]: Command } = {
             clipText.split("\n").forEach(line => stdout.send(line));
             stdout.senderClose();
           });
+      });
+    },
+  },
+
+  bgPage: {
+    desc: "Manually execute a background page command",
+    run: (stdin, stdout, env, args) => {
+      args = args || 'echo';
+      stdout.onReceiver(() => {
+        env.helpers.argsOrStdin([args], stdin, (cmdLine) => {
+          const [cmd, ...rest] = cmdLine[0].split(" ");
+
+          const payload: { [key: string]: string } = {};
+          rest.forEach((segment: string) => {
+            const [k, v] = [
+              segment.slice(0, segment.indexOf(':')),
+              segment.slice(segment.indexOf(':') + 1)
+            ];
+            payload[k] = v;
+          });
+
+          sendMessage(cmd, payload, (response) => {
+            stdout.send(JSON.stringify(response));
+            stdout.senderClose();
+          });
+        });
       });
     },
   },

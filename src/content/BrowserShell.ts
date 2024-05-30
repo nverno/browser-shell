@@ -1,8 +1,8 @@
 import $ from 'jquery';
 import { Terminal, TerminalWindow, makeTerminalWindow } from "~content/terminal";
 import { Debug } from '~utils';
-const debug = Debug('shell');
 
+const debug = Debug('shell');
 
 export class BrowserShell {
   terminalWindow?: TerminalWindow;
@@ -46,9 +46,9 @@ export class BrowserShell {
     return this.terminalWindow?.shown;
   }
 
-  listen(target: any) {
+  listen(target: TerminalWindow['document'] | Document) {
     $(target).on('keydown' as any, (e: KeyboardEvent) => {
-      if (e.key === "t" && e.altKey) {
+      if (e.ctrlKey && e.key === "z") {
         e.preventDefault();
         if (this.terminalShown()) {
           this.hideTerminal();
