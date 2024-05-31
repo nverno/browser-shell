@@ -6,7 +6,7 @@ const debug = Debug('dom');
 export const domCommands: Commands = {
   selection: {
     desc: "Get the current document selection",
-    run: (stdin, stdout, env) => {
+    run: (env, stdin, stdout) => {
       stdout.onReceiver(() => {
         document.getSelection()?.toString().split("\n").forEach((line) => {
           stdout.send(line);
@@ -18,10 +18,10 @@ export const domCommands: Commands = {
 
   text: {
     desc: "Access the page's text",
-    run: (stdin, stdout, env, args) => {
+    run: (env, stdin, stdout, args) => {
       args = args || 'body';
       stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (selectors: string[]) => {
+        env.argsOrStdin([args], stdin, (selectors: string[]) => {
           selectors.forEach((selector) => {
             try {
               $(selector).each((_, elem) => {
@@ -39,9 +39,9 @@ export const domCommands: Commands = {
 
   '.': {
     desc: "Select object attrs, eg. 'jquery a | . href'",
-    run: (stdin, stdout, env, args) => {
+    run: (env, stdin, stdout, args) => {
       if (!stdin) {
-        env.helpers.fail(env, stdout, "stdin required");
+        env.fail(stdout, "stdin required");
         return;
       }
       stdout.onReceiver(() => {
@@ -61,10 +61,10 @@ export const domCommands: Commands = {
 
   jquery: {
     desc: "Access the page's dom",
-    run: (stdin, stdout, env, args) => {
-      args = args || 'body';
+    run: (env, stdin, stdout, args) => {
+      args = args || 'body'
       stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (selectors: string[]) => {
+        env.argsOrStdin([args], stdin, (selectors: string[]) => {
           selectors.forEach((selector) => {
             try {
               $(selector).each((_, elem) => {
@@ -82,9 +82,9 @@ export const domCommands: Commands = {
 
   download: {
     desc: "Download urls",
-    run: (stdin, stdout, env, args) => {
+    run: (env, stdin, stdout, args) => {
       stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (urls) => {
+        env.argsOrStdin([args], stdin, (urls) => {
           debug('Downloading: %s', urls);
           urls.forEach(async (url) => {
             await sendMessage('download', { url }, (id) => {
@@ -99,7 +99,7 @@ export const domCommands: Commands = {
   
   selectorgadget: {
     desc: "Launch selectorGadget",
-    run: (stdin, stdout, env) => {
+    run: (env, stdin, stdout) => {
       stdout.onReceiver(async () => {
         let SelectorGadget = (window as any)?.SelectorGadget;
         if (typeof SelectorGadget == "undefined") {
@@ -118,20 +118,20 @@ export const domCommands: Commands = {
         env.terminal.hide()
         SelectorGadget.toggle({ analytics: false });
 
-        whenTrue(() =>
-          env.interrupt || $("#selectorgadget_path_field").length > 0,
+        env.whenTrue(() =>
+          env.interrupted || $("#selectorgadget_path_field").length > 0,
           () => {
             let lastVal: string;
-            const interval = setInterval(() => {
+            const timerId = env.setInterval(() => {
               const val = $("#selectorgadget_path_field").val() as string;
               if (val !== "No valid path found.") {
                 lastVal = val;
               }
             }, 100);
-            whenTrue(() =>
-              env.interrupt || $("#selectorgadget_path_field").length === 0,
+            env.whenTrue(() =>
+              env.interrupted || $("#selectorgadget_path_field").length === 0,
               () => {
-                clearInterval(interval);
+                env.clearTimer(timerId);
                 env.terminal.show();
                 stdout.send(lastVal || 'unknown');
                 stdout.senderClose();

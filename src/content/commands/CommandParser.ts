@@ -1,70 +1,37 @@
+import { ExecEnv } from './ExecEnv';
 import { Stream } from './Stream';
-import { Terminal } from '~content/terminal';
 import { Debug } from '~utils';
 
 const debug = Debug('parser');
 
 export interface Command {
   desc: string;
-  run: (stdin: Stream | null, stdout: Stream, env: CommandEnv, args?: any) => void|Promise<void>;
+  run: (
+    env: ExecEnv,
+    stdin: Stream | null,
+    stdout: Stream,
+    args?: any
+  ) => void | Promise<void>;
+  alias?: string;
 }
-
 export type Commands = { [key: string]: Command }
 
-export interface CommandEnv {
-  terminal: Terminal;
-  bin: Commands;
-  interrupt: boolean;
-  onCommandFinish: ((res: any) => void)[];
-  helpers: typeof defaultHelpers & { [key: string]: any };
-};
-export type CommandEnvOpt = Omit<CommandEnv, 'helpers'> & Partial<Pick<CommandEnv, 'helpers'>>;
-
-
-const defaultHelpers = {
-  argsOrStdin: (
-    args: string[],
-    stdin: Stream | null,
-    callback: (data: any) => void) => {
-    if (stdin) {
-      stdin.receiveAll((data) => callback(data));
-    } else {
-      callback(args);
-    }
-  },
-
-  fail: (env: CommandEnv, stdout: Stream, message: string | string[]) => {
-    if (Array.isArray(message)) message = message.join(", ");
-    env.terminal.error(message);
-    if (!stdout.senderClosed) {
-      if (stdout.hasReceiver()) {
-        stdout.senderClose();
-      } else {
-        stdout.onReceiver(() => stdout.senderClose());
-      }
-    }
-    return "FAIL";
-  }
-}
-
 export class CommandParser {
-  defaultHelpers = defaultHelpers;
   commandLine: string;
-  env: CommandEnv;
+  env: ExecEnv;
   errors: string[];
   parsedCommands: [string, string][];
 
-  constructor(commandLine: string, env: CommandEnvOpt) {
-    env.helpers ||= this.defaultHelpers;
+  constructor(commandLine: string, env: ExecEnv) {
     this.commandLine = commandLine;
-    this.env = env as CommandEnv;
+    this.env = env;
     this.errors = [];
     this.parsedCommands = [];
   }
 
   parse() {
     if (this.parsedCommands.length === 0) {
-      debug('Parsing %s', this.commandLine);
+      // FIXME(5/30/24): dont split on '|' in strings
       for (const line of this.commandLine.split(/\s*\|\s*/)) {
         const firstSpace = line.indexOf(" ");
         if (firstSpace !== -1) {
@@ -82,11 +49,10 @@ export class CommandParser {
 
   isValid() {
     this.parse();
-    for (const [command] of this.parsedCommands) {
-      if (!this.env.bin[command]) {
-        this.errors.push(`Unknown command '${command}'`);
-      }
-    }
+    this.parsedCommands.forEach(([cmd]) => {
+      if (!this.env.bin[cmd])
+        this.errors.push(`Unknown command: ${cmd}`);
+    });
     return this.errors.length === 0;
   }
 
@@ -95,13 +61,13 @@ export class CommandParser {
     debug('executing: %O', this);
 
     let stdin: Stream | null = null;
-    for (const [command, args] of this.parsedCommands) {
-      const cmdOpts = this.env.bin[command];
+    for (const [cmd, args] of this.parsedCommands) {
+      const cmdOpts = this.env.bin[cmd];
       const run = cmdOpts.run ||
         ((_stdin: Stream | null, stdout: Stream) =>
           stdout.onReceiver(() => stdout.senderClose()));
-      const stdout = new Stream(`stdout for ${command}`);
-      run.call(this.env.helpers, stdin, stdout, this.env, args);
+      const stdout = new Stream(`stdout<${cmd}>`);
+      run.call(this.env, this.env, stdin, stdout, args);
       stdin = stdout;
     }
     return stdin;

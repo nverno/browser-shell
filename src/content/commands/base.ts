@@ -1,12 +1,31 @@
-import { Debug, sendMessage } from '~utils';
+import { Debug, sendMessage, pick } from '~utils';
 import { Command } from './CommandParser';
 
 const debug = Debug('base');
 
 export const baseCommands: { [key: string]: Command } = {
+  help: {
+    desc: "Show help",
+    run: (env, _stdin, stdout, args) => {
+      const cmds = args ? pick(env.bin, args) : env.bin;
+      stdout.onReceiver(() => {
+        stdout.send(Object.entries(cmds)
+          .filter(([_, opts]: any) => opts.desc)
+          .map(([cmd, opts]: any) => {
+            let doc = `<b>${cmd}</b>\t\t${opts.desc}`;
+            if (opts.alias)
+              doc += `\n${opts.alias}\t\tAlias for ${cmd}`;
+            return doc;
+          })
+          .join("\n"));
+        stdout.senderClose();
+      });
+    },
+  },
+
   exit: {
     desc: "Close the terminal",
-    run: (_stdin, stdout, env) => {
+    run: (env, _stdin, stdout) => {
       stdout.onReceiver(() => {
         env.terminal.hide();
         stdout.senderClose();
@@ -16,7 +35,7 @@ export const baseCommands: { [key: string]: Command } = {
 
   clear: {
     desc: "Clear the terminal",
-    run: (_stdin, stdout, env) => {
+    run: (env, _stdin, stdout) => {
       stdout.onReceiver(() => {
         env.terminal.clear();
         stdout.senderClose();
@@ -24,35 +43,30 @@ export const baseCommands: { [key: string]: Command } = {
     },
   },
 
-  help: {
-    desc: "Show help",
-    run: (_stdin, stdout, env) => {
-      stdout.onReceiver(() => {
-        stdout.send(Object.entries(env.bin)
-          .filter(([_, opts]: any) => opts.desc)
-          .map(([cmd, opts]: any) => `${cmd} - ${opts.desc}`)
-          .join("\n"));
-        stdout.senderClose();
-      });
-    },
-  },
-
   echo: {
     desc: "Output to the terminal",
-    run: (_stdin, stdout, _env, args) => {
+    run: (env, stdin, stdout, args) => {
       stdout.onReceiver(() => {
-        stdout.send(args);
-        stdout.senderClose();
+        if (env.interrupted) stdout.senderClose();
+        else if (stdin) {
+          stdin.receive((data, readyForMore) => {
+            stdout.send(data, readyForMore);
+            readyForMore();
+          });
+          stdin.onSenderClose(() => stdout.senderClose());
+        } else {
+          stdout.send(args);
+          stdout.senderClose();
+        }
       });
     },
   },
 
   _: {
     desc: "Access the previous command's output",
-    run: (stdin, stdout, env, args) => {
-      args = args || '1';
+    run: (env, stdin, stdout, args) => {
       stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (back) => {
+        env.argsOrStdin([args], stdin, (back) => {
           (env.terminal.history[env.terminal.historyIndex -
             parseInt(back[0])]?.output || [])
             .forEach((line) => {
@@ -66,10 +80,10 @@ export const baseCommands: { [key: string]: Command } = {
 
   grep: {
     desc: "Search for lines matching a pattern",
-    run: (stdin, stdout, env, args) => {
-      if (!stdin) {
-        return stdout.fail(env, "stdin required for grep");
-      }
+    run: (env, stdin, stdout, args) => {
+      if (!stdin)
+        return env.fail(stdout, "stdin required for grep");
+
       const pattern = new RegExp(args, 'i');
       stdout.onReceiver(() => {
         stdin.onSenderClose(() => stdout.senderClose());
@@ -94,9 +108,9 @@ export const baseCommands: { [key: string]: Command } = {
 
   collect: {
     desc: "Grab all input into an array",
-    run: (stdin, stdout, env, args) => {
+    run: (env, stdin, stdout, args) => {
       stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (rows) => {
+        env.argsOrStdin([args], stdin, (rows) => {
           stdout.send(rows);
           stdout.senderClose();
         });
@@ -106,22 +120,23 @@ export const baseCommands: { [key: string]: Command } = {
 
   tick: {
     desc: "Read once per second",
-    run: (stdin, stdout, env, args) => {
-      if (!stdin) {
-        env.helpers.fail(env, stdout, "stdin required for tick");
-        return;
-      }
+    run: (env, stdin, stdout, args) => {
+      if (!stdin)
+        return env.fail(stdout, "stdin required for tick");
+
+      const ms = parseInt(args) || 500;
       stdout.onReceiver(() => {
         stdin.onSenderClose(() => stdout.senderClose());
         stdin.receive((line, readyForMore) => {
           stdout.send(line);
-          setTimeout(() => {
-            if (env.interrupt) {
+          env.setTimeout(() => {
+            if (env.interrupted) {
+              debug('tick sees interrupted');
               stdout.senderClose();
             } else {
               readyForMore();
             }
-          }, parseInt(args) || 500);
+          }, ms, stdout);
         });
       });
     },
@@ -129,17 +144,19 @@ export const baseCommands: { [key: string]: Command } = {
 
   yes: {
     desc: "Emit the given text continuously",
-    run: (stdin, stdout, env, args) => {
+    run: (env, stdin, stdout, args) => {
+
+      const ms = parseInt(args) || 50;
       stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (text) => {
+        env.argsOrStdin([args], stdin, (text) => {
           const emit = () => {
-            setTimeout(() => {
-              if (env.interrupt) {
+            env.setTimeout(() => {
+              if (env.interrupted) {
                 stdout.senderClose();
               } else {
                 stdout.send(text[0], emit);
               }
-            }, 50);
+            }, ms, stdout);
           };
           emit();
         });
@@ -149,9 +166,9 @@ export const baseCommands: { [key: string]: Command } = {
 
   pbcopy: {
     desc: "Put data into the clipboard",
-    run: (stdin, stdout, env, args) => {
+    run: (env, stdin, stdout, args) => {
       stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (lines) => {
+        env.argsOrStdin([args], stdin, (lines) => {
           navigator.clipboard.writeText(lines.join("\n"))
             .then(() => {
               debug("copied");
@@ -164,7 +181,7 @@ export const baseCommands: { [key: string]: Command } = {
 
   pbpaste: {
     desc: "Pull data from the clipboard",
-    run: (_stdin, stdout, _env, _args) => {
+    run: (_env, _stdin, stdout, _args) => {
       stdout.onReceiver(() => {
         navigator.clipboard.readText()
           .then(clipText => {
@@ -177,10 +194,10 @@ export const baseCommands: { [key: string]: Command } = {
 
   bgPage: {
     desc: "Manually execute a background page command",
-    run: (stdin, stdout, env, args) => {
-      args = args || 'echo';
+    run: (env, stdin, stdout, args) => {
+      args = args || 'echo'
       stdout.onReceiver(() => {
-        env.helpers.argsOrStdin([args], stdin, (cmdLine) => {
+        env.argsOrStdin([args], stdin, (cmdLine) => {
           const [cmd, ...rest] = cmdLine[0].split(" ");
 
           const payload: { [key: string]: string } = {};
@@ -192,7 +209,7 @@ export const baseCommands: { [key: string]: Command } = {
             payload[k] = v;
           });
 
-          sendMessage(cmd, payload, (response) => {
+          sendMessage(cmd, payload, (response: any) => {
             stdout.send(JSON.stringify(response));
             stdout.senderClose();
           });
@@ -200,6 +217,19 @@ export const baseCommands: { [key: string]: Command } = {
       });
     },
   },
+
+  eval: {
+    desc: "Eval javascript code",
+    run: (env, stdin, stdout, args) => {
+      stdout.onReceiver(() => {
+        env.argsOrStdin([args], stdin, (code) => {
+          stdout.send(eval(code));
+          stdout.senderClose();
+        });
+      });
+    },
+  },
+
 };
 
 export default baseCommands;

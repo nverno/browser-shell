@@ -1,4 +1,4 @@
-import { defaultsDeep } from 'lodash';
+import { deepMerge } from '~utils';
 
 let userConfigDefault = {
   debugPrefix: 'bs:*',
@@ -11,7 +11,7 @@ export type UserConfig = typeof userConfigDefault;
 
 export async function getUserConfig(): Promise<UserConfig> {
   const config = await chrome.storage.sync.get(Object.keys(userConfigDefault));
-  return defaultsDeep(config, userConfigDefault);
+  return deepMerge(config, userConfigDefault);
 }
 
 export async function updateUserConfig(updates: Partial<UserConfig>) {

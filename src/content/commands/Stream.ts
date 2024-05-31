@@ -5,11 +5,10 @@ export class Stream<T = any> {
   name: string;
   senderClosed = false;
   receiverClosed = false;
-  receiveCallback?: (text: T, readyForMore: () => void) => void;
+  receiveCallback?: (data: T, readyForMore: () => void) => void;
   onSenderCloseCallback?: () => void;
   onReceiverCloseCallback?: () => void;
   onReceiverCallback?: () => void;
-  fail?: any;
 
   constructor(name: string) {
     this.name = name;
@@ -77,7 +76,7 @@ export class Stream<T = any> {
     return !!this.onReceiverCallback;
   }
 
-  send(text: T, readyForMore: () => void = () => {}) {
+  send(data: T, readyForMore: () => void = () => {}) {
     if (this.senderClosed) {
       throw new Error(`Cannot write to sender-closed stream '${this.name}'`);
     }
@@ -87,11 +86,11 @@ export class Stream<T = any> {
     if (this.receiverClosed) {
       throw new Error(`Cannot write to receiver-closed stream '${this.name}'`);
     }
-    // this.log(`sent: %O`, text);
-    this.receiveCallback(text, readyForMore);
+    // this.log(`sent: %O`, data);
+    this.receiveCallback(data, readyForMore);
   }
 
-  receive(callback: (text: T, readyForMore: () => void) => void) {
+  receive(callback: (data: T, readyForMore: () => void) => void) {
     if (this.receiveCallback) {
       throw new Error(`Cannot bind more than one receive callback to '${this.name}'`);
     }
@@ -101,8 +100,8 @@ export class Stream<T = any> {
 
   receiveAll(callback: (fullData: T[]) => void) {
     const fullData: T[] = [];
-    this.receive((text: T, readyForMore: () => void) => {
-      fullData.push(text);
+    this.receive((data: T, readyForMore: () => void) => {
+      fullData.push(data);
       readyForMore();
     });
     this.onSenderClose(() => callback(fullData));

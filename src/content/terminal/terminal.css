@@ -47,7 +47,7 @@ body.terminal-iframe {
     }
 
     .history {
-      max-height: 150px;
+      max-height: 85%;
       overflow: auto;
 
       &::-webkit-scrollbar {

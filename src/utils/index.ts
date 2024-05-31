@@ -5,3 +5,4 @@ export * from './window';
 export * from './clipboard';
 export * from './debug';
 export * from './messages';
+export * from './arrays';

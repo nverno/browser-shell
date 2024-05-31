@@ -21,7 +21,7 @@ export class BrowserShell {
       this.terminalWindow.show();
     } else {
       this.terminalWindow = makeTerminalWindow({
-        height: '250px',
+        height: '400px',
         animate: true,
         closable: false,
         css: {

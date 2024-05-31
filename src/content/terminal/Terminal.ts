@@ -1,8 +1,9 @@
 import $ from 'jquery';
 import { Debug, escapeAndLinkify, truncate, sendMessage } from '~utils';
-import { CommandParser, Commands, commands, type CommandEnvOpt } from '~content';
+import { CommandParser, Commands, commands } from '~content';
 import { BrowserShell } from '../BrowserShell';
 import { TerminalWindow } from './TerminalWindow';
+import { ExecEnv } from '~content/commands/ExecEnv';
 
 const debug = Debug('terminal');
 const DONT_RECORD = ["help", "_"].reduce((acc, s) => ({ [s]: true, ...acc }), {});
@@ -21,7 +22,7 @@ export class Terminal {
   $historyMetadata: JQuery<HTMLElement>;
   history: { command: string, output: string[] }[] = [];
   historyIndex: number;
-  
+
   constructor(win: TerminalWindow, shell: BrowserShell, _options: any = {}) {
     this.win = win;
     this.shell = shell;
@@ -166,15 +167,15 @@ export class Terminal {
     e.preventDefault();
     if (pos >= 0)
       this.$textarea[0].setSelectionRange(pos, pos);
-    debug("handled edit: alt=%s ctrl=%s code=%s", e.altKey, e.ctrlKey, e.code);
+    // debug("handled edit: alt=%s ctrl=%s code=%s", e.altKey, e.ctrlKey, e.code);
     return true;
   }
 
   initInput() {
     this.$textarea.on("keydown", (e: JQuery.KeyDownEvent) => {
       if (this.handleEdit(e)) return;
-      debug("%o", e);
-      
+      // debug("%o", e);
+
       let propagate = false;
       let autocompleteIndex = 0;
       let autocompletePrefix = '';
@@ -251,7 +252,7 @@ export class Terminal {
     if (output) {
       this.$historyMetadata.html(
         `output#${index}: ` +
-          escapeAndLinkify(truncate(output.join(", "), 100))).show();
+        escapeAndLinkify(truncate(output.join(", "), 100))).show();
     } else {
       this.$historyMetadata.hide();
     }
@@ -264,13 +265,7 @@ export class Terminal {
       this.write("$ " + text, 'input');
       this.clearInput();
 
-      const env: CommandEnvOpt = {
-        terminal: this,
-        onCommandFinish: [],
-        bin: this.bin,
-        interrupt: false,
-      };
-
+      const env = new ExecEnv(this);
       const parser = new CommandParser(text, env);
 
       if (!parser.isValid()) {
@@ -286,7 +281,7 @@ export class Terminal {
         if (e.ctrlKey && e.key === "c") {
           e.preventDefault();
           this.error("Caught control-c");
-          env.interrupt = true;
+          env.interrupt();
         }
       };
       this.$body.on("keydown", signalHandler);
@@ -302,9 +297,9 @@ export class Terminal {
         this.showPrompt();
       });
 
-      stream.receive((text: string, readyForMore: () => void) => {
-        this.write(text, 'output');
-        outputLog.push(text);
+      stream.receive((data, readyForMore: () => void) => {
+        this.write(data, 'output');
+        outputLog.push(data);
         if (outputLog.length > MAX_OUTPUT_BUFFER)
           outputLog.shift();
         readyForMore();
@@ -342,9 +337,9 @@ export class Terminal {
     callback: (response: any) => void = (response) => {
       if (response?.errors) this.error(response.errors);
     }) {
-      debug('send background: %s, %o, %O', cmd, options, callback);
-      sendMessage(cmd, options, callback);
-    }
+    debug('send background: %s, %o, %O', cmd, options, callback);
+    sendMessage(cmd, options, callback);
+  }
 
   clear() {
     this.$history.empty();
