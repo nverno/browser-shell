@@ -6,7 +6,7 @@ import { TerminalWindow } from './TerminalWindow';
 import { ExecEnv } from '~content/commands/ExecEnv';
 
 const debug = Debug('terminal');
-const DONT_RECORD = ["help", "_"].reduce((acc, s) => ({ [s]: true, ...acc }), {});
+const DONT_RECORD = ["help", "clear", "_"].reduce((acc, s) => ({ [s]: true, ...acc }), {});
 const MAX_OUTPUT_BUFFER: number = 1024
 
 export class Terminal {
@@ -76,6 +76,10 @@ export class Terminal {
 
   focusPrompt() {
     this.$textarea.trigger('focus');
+  }
+
+  toggleFullscreen() {
+    this.win?.toggleFullscreen();
   }
 
   showHistory(change: string) {

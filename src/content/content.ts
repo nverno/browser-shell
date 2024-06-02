@@ -1,3 +1,4 @@
 import { BrowserShell } from './BrowserShell';
-
-BrowserShell.start();
+(async () => {
+  await BrowserShell.start();
+})();

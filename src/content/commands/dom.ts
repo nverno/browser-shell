@@ -80,13 +80,31 @@ export const domCommands: Commands = {
     }
   },
 
+  expandpath: {
+    desc: "Expand relative urls",
+    run: (env, stdin, stdout, args) => {
+      stdout.onReceiver(() => {
+        env.argsOrStdin([args], stdin, (urls) => {
+          urls.forEach((url: string) => {
+            stdout.send(url.startsWith("//")
+              ? "https:" + url
+              : url.startsWith("/")
+                ? `${location.origin}${url}`
+                : url);
+          });
+          stdout.senderClose();
+        });
+      });
+    },
+  },
+
   download: {
     desc: "Download urls",
     run: (env, stdin, stdout, args) => {
       stdout.onReceiver(() => {
         env.argsOrStdin([args], stdin, (urls) => {
           debug('Downloading: %s', urls);
-          urls.forEach(async (url) => {
+          urls.forEach(async (url: string) => {
             await sendMessage('download', { url }, (id) => {
               stdout.send(id);
             });

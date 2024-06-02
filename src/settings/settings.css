@@ -16,6 +16,7 @@ form {
   display: flex;
   flex-direction: column;
   align-content: space-between;
+  padding: 8px;
 }
 
 label {
@@ -39,6 +40,13 @@ input {
 .fieldset {
   margin-bottom: 20px;
   font-size: 16px;
+  padding-left: 5px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 8px;
 }
 
 button {

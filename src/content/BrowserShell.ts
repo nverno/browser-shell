@@ -1,6 +1,7 @@
 import $ from 'jquery';
-import { Terminal, TerminalWindow, makeTerminalWindow } from "~content/terminal";
-import { Debug } from '~utils';
+import { Terminal, TerminalWindow } from "~content/terminal";
+import { Debug, isKey } from '~utils';
+import { getUserConfig } from '~config';
 
 const debug = Debug('shell');
 
@@ -11,19 +12,21 @@ export class BrowserShell {
 
   constructor() {}
 
-  init() {
+  async init() {
     debug("listening...");
-    this.listen(document);
+    await this.listen(document);
   }
 
-  showTerminal() {
+  async showTerminal() {
     if (this.terminalWindow) {
       this.terminalWindow.show();
     } else {
-      this.terminalWindow = makeTerminalWindow({
-        height: '400px',
+      const config = await getUserConfig();
+      this.terminalWindow = new TerminalWindow({
+        height: config.shellHeight,
         animate: true,
-        closable: false,
+        resizable: true,
+        closable: true,
         css: {
           left: '0',
           right: '0',
@@ -31,7 +34,7 @@ export class BrowserShell {
           width: '100%',
         },
       });
-      this.listen(this.terminalWindow.document);
+      await this.listen(this.terminalWindow.document);
       this.terminal = new Terminal(this.terminalWindow, this);
       debug("created terminal: %O", this.terminal);
     }
@@ -46,21 +49,25 @@ export class BrowserShell {
     return this.terminalWindow?.shown;
   }
 
-  listen(target: TerminalWindow['document'] | Document) {
+  async listen(target: TerminalWindow['document'] | Document) {
+    const config = await getUserConfig();
     $(target).on('keydown' as any, (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "z") {
+      if (isKey(config.commands.openShell, e)) {
         e.preventDefault();
         if (this.terminalShown()) {
           this.hideTerminal();
         } else {
           this.showTerminal();
         }
+      } else if (isKey(config.commands.toggleFullscreen, e) && this.terminalShown()) {
+        e.preventDefault();
+        this.terminal.toggleFullscreen()!;
       }
     });
   }
 
-  static start() {
+  static async start() {
     const extension = new BrowserShell();
-    extension.init();
+    await extension.init();
   }
 }

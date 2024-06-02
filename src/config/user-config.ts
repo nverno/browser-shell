@@ -2,8 +2,10 @@ import { deepMerge } from '~utils';
 
 let userConfigDefault = {
   debugPrefix: 'bs:*',
+  shellHeight: '400px',
   commands: {
     openShell: 'C-z',
+    toggleFullscreen: 'M-l',
   }
 };
 
