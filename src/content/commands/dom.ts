@@ -105,9 +105,11 @@ export const domCommands: Commands = {
         env.argsOrStdin([args], stdin, (urls) => {
           debug('Downloading: %s', urls);
           urls.forEach(async (url: string) => {
-            await sendMessage('download', { url }, (id) => {
-              stdout.send(id);
+            const id = await sendMessage({
+              command: 'download',
+              payload: { url },
             });
+            stdout.send(id);
           });
           stdout.senderClose();
         });
@@ -121,16 +123,22 @@ export const domCommands: Commands = {
       stdout.onReceiver(async () => {
         let SelectorGadget = (window as any)?.SelectorGadget;
         if (typeof SelectorGadget == "undefined") {
-          sendMessage('insertCSS', {
-            files:["vendor/selectorgadget_combined.css"]
-          }, () => debug('inserted selectorgadget_combined.css'));
-          await sendMessage('executeScript', {
-            target: { allFrames: true },
-            files: ["vendor/selectorgadget_combined.js"],
-          }, (res) => {
-            SelectorGadget = (window as any).SelectorGadget;
-            debug('SelectorGadget loaded: %O', SelectorGadget);
+          await sendMessage({
+            command: 'insertCSS',
+            payload: {
+              files: ["vendor/selectorgadget_combined.css"]
+            },
           });
+          debug('inserted selectorgadget_combined.css')
+          await sendMessage({
+            command: 'executeScript',
+            payload: {
+              target: { allFrames: true },
+              files: ["vendor/selectorgadget_combined.js"],
+            }
+          });
+          SelectorGadget = (window as any).SelectorGadget;
+          debug('SelectorGadget loaded: %O', SelectorGadget);
         }
 
         env.terminal.hide()

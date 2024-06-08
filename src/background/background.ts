@@ -121,8 +121,8 @@ export class BackgroundPage {
               break;
 
             case 'openTab':
-              
               break;
+
             case 'download':
               chrome.downloads
                 .download({

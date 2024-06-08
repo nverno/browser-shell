@@ -6,7 +6,9 @@ import { TerminalWindow } from './TerminalWindow';
 import { ExecEnv } from '~content/commands/ExecEnv';
 
 const debug = Debug('terminal');
-const DONT_RECORD = ["help", "clear", "_"].reduce((acc, s) => ({ [s]: true, ...acc }), {});
+const DONT_RECORD = [
+  "exit", "help", "clear", "_"
+].reduce((acc, s) => ({ [s]: true, ...acc }), {});
 const MAX_OUTPUT_BUFFER: number = 1024
 
 export class Terminal {
@@ -336,13 +338,16 @@ export class Terminal {
   }
 
   remote(
-    cmd: string,
+    command: string,
     options: any,
     callback: (response: any) => void = (response) => {
-      if (response?.errors) this.error(response.errors);
+      if (response?.errors)
+        this.error(response.errors);
     }) {
-    debug('send background: %s, %o, %O', cmd, options, callback);
-    sendMessage(cmd, options, callback);
+    debug('send background: %s, %o, %O', command, options, callback);
+    sendMessage({ command, payload: options })
+      .then(res => callback(res))
+      .catch(errors => this.error(errors));
   }
 
   clear() {

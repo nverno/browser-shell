@@ -1,4 +1,6 @@
 import { BackgroundPage } from './background';
+import './server';
+
 // import { Debug } from '~utils';
 // const debug = Debug('bg');
 

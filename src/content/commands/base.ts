@@ -1,4 +1,4 @@
-import { Debug, sendMessage, pick } from '~utils';
+import { Debug, sendMessage, pick, } from '~utils';
 import { Command } from './CommandParser';
 
 const debug = Debug('base');
@@ -197,9 +197,11 @@ export const baseCommands: { [key: string]: Command } = {
     run: (env, stdin, stdout, args) => {
       args = args || 'echo'
       stdout.onReceiver(() => {
-        env.argsOrStdin([args], stdin, (cmdLine) => {
+        env.argsOrStdin([args], stdin, async (cmdLine) => {
           const [cmd, ...rest] = cmdLine[0].split(" ");
-
+          if (!cmd || cmd.length === 0) {
+            return env.fail(stdout, "missing command");
+          }
           const payload: { [key: string]: string } = {};
           rest.forEach((segment: string) => {
             const [k, v] = [
@@ -208,11 +210,17 @@ export const baseCommands: { [key: string]: Command } = {
             ];
             payload[k] = v;
           });
-
-          sendMessage(cmd, payload, (response: any) => {
-            stdout.send(JSON.stringify(response));
-            stdout.senderClose();
+          const res = await sendMessage({
+            target: cmd === 'callServer' ? 'server' : 'background',
+            command: cmd,
+            payload,
           });
+          if (res?.errors) {
+            env.fail(stdout, res.errors);
+          } else {
+            stdout.send(JSON.stringify(res));
+            stdout.senderClose();
+          }
         });
       });
     },
