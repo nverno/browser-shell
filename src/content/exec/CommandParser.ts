@@ -1,28 +1,32 @@
+import { PipeBase } from '~content/io';
 import { ExecEnv } from './ExecEnv';
-import { Stream } from './Stream';
-import { Debug } from '~utils';
+// import { Debug } from '~utils';
+// const debug = Debug('parser');
 
-const debug = Debug('parser');
-
-export interface Command {
+export interface Command<T extends PipeBase, E = ExecEnv<T>> {
   desc: string;
   run: (
-    env: ExecEnv,
-    stdin: Stream | null,
-    stdout: Stream,
+    env: E,
+    stdin: T | null,
+    stdout: T,
     args?: any
   ) => void | Promise<void>;
   alias?: string;
 }
-export type Commands = { [key: string]: Command }
+export type Commands<T extends PipeBase, E = ExecEnv<T>> = { [key: string]: Command<T, E> }
 
-export class CommandParser {
+/** Interface to parse and execute command lines */
+export interface CommandExec<E extends ExecEnv<PipeBase>> extends CommandParser<E> {
+  execute(): void;
+}
+
+export class CommandParser<E extends ExecEnv<PipeBase>> {
   commandLine: string;
-  env: ExecEnv;
+  env: E;
   errors: string[];
   parsedCommands: [string, string][];
 
-  constructor(commandLine: string, env: ExecEnv) {
+  constructor(commandLine: string, env: E) {
     this.commandLine = commandLine;
     this.env = env;
     this.errors = [];
@@ -55,21 +59,4 @@ export class CommandParser {
     });
     return this.errors.length === 0;
   }
-
-  execute() {
-    this.parse();
-    debug('executing: %O', this);
-
-    let stdin: Stream | null = null;
-    for (const [cmd, args] of this.parsedCommands) {
-      const cmdOpts = this.env.bin[cmd];
-      const run = cmdOpts.run ||
-        ((_stdin: Stream | null, stdout: Stream) =>
-          stdout.onReceiver(() => stdout.senderClose()));
-      const stdout = new Stream(`stdout<${cmd}>`);
-      run.call(this.env, this.env, stdin, stdout, args);
-      stdin = stdout;
-    }
-    return stdin;
-  }
-}
+};

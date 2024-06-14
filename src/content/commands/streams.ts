@@ -1,7 +1,9 @@
-import { Commands } from "./CommandParser";
+import { Commands } from "~content/exec";
+import { StreamEnv } from '~content/exec/stream';
+import { Stream } from "~content/io";
 
 // Stream manipulating commands
-const commands: Commands = {
+const commands: Commands<Stream, StreamEnv> = {
   wait: {
     desc: "Wait for [n=null] ms. Without n, wait for all input (blocks)",
     run: (env, stdin, stdout, args) => {},

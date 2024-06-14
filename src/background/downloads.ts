@@ -28,3 +28,4 @@ export function openWhenComplete(downloadId) {
   ids.push(downloadId);
   localStorage.openWhenComplete = JSON.stringify(ids);
 }
+

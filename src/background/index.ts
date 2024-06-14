@@ -1,5 +1,7 @@
 import { BackgroundPage } from './background';
 import './server';
+import './history';
+import './settings';
 
 // import { Debug } from '~utils';
 // const debug = Debug('bg');

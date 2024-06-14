@@ -1,30 +1,30 @@
 import { Terminal } from "~content/terminal";
-import { Stream } from "./Stream";
-import { Commands } from './CommandParser';
+import { Commands } from '~content/exec';
 import { Debug } from '~utils';
+import { PipeBase } from '~content/io';
 
-const debug = Debug('env');
+const debug = Debug('exec');
 
-export type CommandEnvOptions = Partial<
-  Pick<ExecEnv, 'bin' | 'onCommandFinish' | 'helpers'>> & {
+export type ExecEnvOptions<T extends PipeBase> = Partial<
+  Pick<ExecEnv<T>, 'bin' | 'onCommandFinish' | 'helpers'>> & {
     extendBin?: boolean
   };
 
 export type ExecEnvHelper = (...args: any[]) => void;
 
-/** Execution environment */
-export class ExecEnv {
+/** Execution environment for shell commands */
+export class ExecEnv<T extends PipeBase> {
   terminal: Terminal;
-  bin: Commands;
+  bin: Commands<T>;
   onCommandFinish: ((res: any) => void)[];
   helpers: { [key: string]: ExecEnvHelper };
   timers: {
-    [key: string | number]: [string, NodeJS.Timeout | string | number, Stream | null]
+    [key: string | number]: [string, NodeJS.Timeout | string | number, T | null]
   };
   nextTimerId: number;
   interrupted: boolean;
 
-  constructor(terminal: Terminal, opts: CommandEnvOptions = {}) {
+  constructor(terminal: Terminal, opts: ExecEnvOptions<T> = {}) {
     const { bin = undefined, onCommandFinish = [], helpers = {}, extendBin = true } = opts;
     this.terminal = terminal;
     this.onCommandFinish = onCommandFinish;
@@ -40,13 +40,13 @@ export class ExecEnv {
   /** setInterval wrapper that registers interval
    * @returns timeout Id
    */
-  setInterval(callback: () => void, ms?: number, stdout?: Stream): number {
+  setInterval(callback: () => void, ms?: number, stdout?: T): number {
     const id = this.nextTimerId++;
     this.timers[id] = ['interval', setInterval(callback, ms), stdout];
     return id;
   }
 
-  setTimeout(callback: () => void, ms?: number, stdout?: Stream): number {
+  setTimeout(callback: () => void, ms?: number, stdout?: T): number {
     const id = this.nextTimerId++;
     debug('timerId=%d, setTimeout: %O', id, callback);
     this.timers[id] = ['timeout', setTimeout(callback, ms), stdout];
@@ -61,8 +61,8 @@ export class ExecEnv {
     } else {
       clearTimeout(timer);
     }
-    if (stdout && !stdout.senderClosed)
-      stdout.senderClose();
+    if (stdout && !stdout.writeClosed)
+      stdout.closeWrite();
     delete this.timers[id];
   }
 
@@ -89,31 +89,5 @@ export class ExecEnv {
       }
     };
     go();
-  }
-
-  /** Receive input from stdin if non-null or args. */
-  argsOrStdin(
-    args: any[],
-    stdin: Stream | null,
-    callback: (data: any) => void
-  ) {
-    if (stdin) {
-      stdin.receiveAll((data) => callback(data));
-    } else {
-      callback(args);
-    }
-  }
-
-  /** Terminate execution and report error message in Terminal. */
-  fail(stdout: Stream, message: string | string[]) {
-    if (Array.isArray(message)) message = message.join(", ");
-    this.terminal.error(message);
-    if (!stdout.senderClosed) {
-      if (stdout.hasReceiver()) {
-        stdout.senderClose();
-      } else {
-        stdout.onReceiver(() => stdout.senderClose());
-      }
-    }
   }
 };

@@ -1,16 +1,18 @@
 import $ from 'jquery';
-import { Commands } from './CommandParser';
+import { Commands } from '~content/exec';
+import { StreamEnv } from '~content/exec/stream';
+import { Stream } from '~content/io';
 import { newWindow, domain } from '~utils';
 
-const commands: Commands = {
+const commands: Commands<Stream, StreamEnv> = {
   hn: {
     desc: "Search hn",
     run: (env, stdin, stdout, args) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         env.argsOrStdin([args], stdin, (query) => {
           const q = Array.isArray(query) ? query.join() : query
           newWindow(`https://hn.algolia.com/?q=${encodeURIComponent(q)}`);
-          stdout.senderClose();
+          stdout.closeWrite();
         });
       });
     },
@@ -19,7 +21,7 @@ const commands: Commands = {
   bugmenot: {
     desc: "Launch BugMeNot for this site, or the site passed",
     run: (env, stdin, stdout, args = domain()) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         env.terminal.hide();
         env.argsOrStdin([args], stdin, (domains) => {
           const domain = domains[0];
@@ -29,8 +31,8 @@ const commands: Commands = {
               'height=500,width=700'
             )?.focus();
           }
-          stdout.send(`Launching BugMeNot for '${domain}'`);
-          stdout.senderClose();
+          stdout.write(`Launching BugMeNot for '${domain}'`);
+          stdout.closeWrite();
         });
       });
     },
@@ -39,11 +41,11 @@ const commands: Commands = {
   random_link: {
     desc: "Open a random page link",
     run: (env, stdin, stdout) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         newWindow(
           document.links[Math.floor(Math.random() * document.links.length)].href
         );
-        stdout.senderClose();
+        stdout.closeWrite();
       });
     },
   },
@@ -51,9 +53,9 @@ const commands: Commands = {
   waybackmachine: {
     desc: "Open this page in Archive.org's Wayback Machine",
     run: (env, stdin, stdout) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         newWindow('http://web.archive.org/web/*/' + domain());
-        stdout.senderClose();
+        stdout.closeWrite();
       });
     },
   },
@@ -61,11 +63,11 @@ const commands: Commands = {
   gist: {
     desc: "Make a new GitHub gist",
     run: (env, stdin, stdout, args) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         if (stdin) {
-          stdin.receiveAll((rows) => {
+          stdin.readAll((rows) => {
             if (env.interrupted) {
-              stdout.senderClose();
+              stdout.closeWrite();
             } else {
               const files: { [key: string]: { content: string } } = {};
               files[args || 'data.txt'] = { content: rows.join("\n") };
@@ -73,16 +75,16 @@ const commands: Commands = {
                 public: true,
                 files
               }))
-                .fail(() => stdout.senderClose())
+                .fail(() => stdout.closeWrite())
                 .done((resp) => {
-                  stdout.send(resp.html_url);
-                  stdout.senderClose();
+                  stdout.write(resp.html_url);
+                  stdout.closeWrite();
                 });
             }
           });
         } else {
           newWindow("https://gist.github.com/");
-          stdout.senderClose();
+          stdout.closeWrite();
         }
       });
     },
@@ -91,10 +93,10 @@ const commands: Commands = {
   namegrep: {
     desc: "Grep for domain names",
     run: (env, stdin, stdout, args) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         env.argsOrStdin([args], stdin, (lines) => {
           newWindow(`http://namegrep.com/#${lines.join("|")}`);
-          stdout.senderClose();
+          stdout.closeWrite();
         });
       });
     },
@@ -103,16 +105,16 @@ const commands: Commands = {
   requestbin: {
     desc: "Make a requestb.in",
     run: (env, stdin, stdout, args) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         env.argsOrStdin([args], stdin, (lines) => {
           if (env.interrupted) {
-            stdout.senderClose();
+            stdout.closeWrite();
           } else {
             $.post("http://requestb.in/api/v1/bins", {
               private: lines[0] === "private"
             }, (response) => {
-              stdout.send(`http://requestb.in/${response['name']}?inspect`);
-              stdout.senderClose();
+              stdout.write(`http://requestb.in/${response['name']}?inspect`);
+              stdout.closeWrite();
             });
           }
         });

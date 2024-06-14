@@ -1,19 +1,31 @@
 import { deepMerge } from '~utils';
 
 let userConfigDefault = {
-  debugPrefix: 'bs:*',
-  shellHeight: '400px',
-  // serverPort: 5005,
+  debug: {
+    prefix: 'bs:*',
+    storage: true,
+  },
+  shell: {
+    height: '400px',
+  },
+  server: {
+    port: 5005,
+  },
   commands: {
     openShell: 'C-z',
     toggleFullscreen: 'M-l',
-  }
+  },
+  history: {
+    maxSize: 100,
+  },
 };
 
 export type UserConfig = typeof userConfigDefault;
 
 export async function getUserConfig(): Promise<UserConfig> {
-  const config = await chrome.storage.sync.get(Object.keys(userConfigDefault));
+  const config = await chrome.storage.sync.get(
+    Object.keys(userConfigDefault)
+  );
   return deepMerge(config, userConfigDefault);
 }
 

@@ -1,17 +1,19 @@
 import $ from "jquery";
-import { Debug, whenTrue, sendMessage } from '~utils';
-import { Commands } from './CommandParser';
+import { Debug, sendMessage, evaluateXpath } from '~utils';
+import { Commands } from '~content/exec';
+import { StreamEnv } from "~content/exec/stream";
+import { Stream } from "~content/io";
 const debug = Debug('dom');
 
-export const domCommands: Commands = {
+export const domCommands: Commands<Stream, StreamEnv> = {
   selection: {
     desc: "Get the current document selection",
     run: (env, stdin, stdout) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         document.getSelection()?.toString().split("\n").forEach((line) => {
-          stdout.send(line);
+          stdout.write(line);
         });
-        stdout.senderClose();
+        stdout.closeWrite();
       });
     },
   },
@@ -20,18 +22,18 @@ export const domCommands: Commands = {
     desc: "Access the page's text",
     run: (env, stdin, stdout, args) => {
       args = args || 'body';
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         env.argsOrStdin([args], stdin, (selectors: string[]) => {
           selectors.forEach((selector) => {
             try {
               $(selector).each((_, elem) => {
-                stdout.send($(elem).text());
+                stdout.write($(elem).text());
               });
             } catch (error) {
               env.terminal.error(error);
             }
           });
-          stdout.senderClose();
+          stdout.closeWrite();
         });
       });
     },
@@ -44,37 +46,58 @@ export const domCommands: Commands = {
         env.fail(stdout, "stdin required");
         return;
       }
-      stdout.onReceiver(() => {
-        stdin.onSenderClose(() => stdout.senderClose());
-        stdin.receive((elems, readyForMore) => {
+      // send SIGPIPE
+      stdout.onRead(() => {
+        if (!args || args.length === 0)
+          stdin.closeRead();
+        stdin.onCloseWrite(() => stdout.closeWrite());
+        stdin.read((elems, readyForMore) => {
           try {
-            stdout.send($(elems).attr(args));
+            stdout.write($(elems).attr(args));
             readyForMore();
           } catch (error) {
             env.terminal.error(error);
-            stdin.receiverClose();
+            stdin.closeRead();
           }
         });
       });
     }
   },
 
+  xpath: {
+    desc: 'Return nodes matching xpath query',
+    run: (env, stdin, stdout, args) => {
+      stdout.onRead(() => {
+        env.argsOrStdin([args], stdin, (queries: string[]) => {
+          queries.forEach(query => {
+            try {
+              // stdout.write(evaluateXpath(query, document));
+            } catch (error) {
+              env.terminal.error(error);
+            }
+          });
+        });
+        stdout.closeWrite();
+      });
+    },
+  },
+
   jquery: {
     desc: "Access the page's dom",
     run: (env, stdin, stdout, args) => {
       args = args || 'body'
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         env.argsOrStdin([args], stdin, (selectors: string[]) => {
           selectors.forEach((selector) => {
             try {
               $(selector).each((_, elem) => {
-                stdout.send(elem);
+                stdout.write(elem);
               });
             } catch (error) {
               env.terminal.error(error);
             }
           });
-          stdout.senderClose();
+          stdout.closeWrite();
         });
       });
     }
@@ -83,16 +106,16 @@ export const domCommands: Commands = {
   expandpath: {
     desc: "Expand relative urls",
     run: (env, stdin, stdout, args) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         env.argsOrStdin([args], stdin, (urls) => {
           urls.forEach((url: string) => {
-            stdout.send(url.startsWith("//")
+            stdout.write(url.startsWith("//")
               ? "https:" + url
               : url.startsWith("/")
                 ? `${location.origin}${url}`
                 : url);
           });
-          stdout.senderClose();
+          stdout.closeWrite();
         });
       });
     },
@@ -101,7 +124,7 @@ export const domCommands: Commands = {
   download: {
     desc: "Download urls",
     run: (env, stdin, stdout, args) => {
-      stdout.onReceiver(() => {
+      stdout.onRead(() => {
         env.argsOrStdin([args], stdin, (urls) => {
           debug('Downloading: %s', urls);
           urls.forEach(async (url: string) => {
@@ -109,18 +132,18 @@ export const domCommands: Commands = {
               command: 'download',
               payload: { url },
             });
-            stdout.send(id);
+            stdout.write(id);
           });
-          stdout.senderClose();
+          stdout.closeWrite();
         });
       });
     }
   },
-  
+
   selectorgadget: {
     desc: "Launch selectorGadget",
     run: (env, stdin, stdout) => {
-      stdout.onReceiver(async () => {
+      stdout.onRead(async () => {
         let SelectorGadget = (window as any)?.SelectorGadget;
         if (typeof SelectorGadget == "undefined") {
           await sendMessage({
@@ -159,8 +182,8 @@ export const domCommands: Commands = {
               () => {
                 env.clearTimer(timerId);
                 env.terminal.show();
-                stdout.send(lastVal || 'unknown');
-                stdout.senderClose();
+                stdout.write(lastVal || 'unknown');
+                stdout.closeWrite();
               });
           });
       });

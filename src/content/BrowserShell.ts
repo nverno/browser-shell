@@ -23,7 +23,7 @@ export class BrowserShell {
     } else {
       const config = await getUserConfig();
       this.terminalWindow = new TerminalWindow({
-        height: config.shellHeight,
+        height: config.shell.height,
         animate: true,
         resizable: true,
         closable: true,

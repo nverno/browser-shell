@@ -43,7 +43,7 @@
 //         stdin.onSenderClose(() => {
 //           closed = true;
 //           if (pendingCount === 0) {
-//             stdout.senderClose();
+//             stdout.closeWrite();
 //           }
 //         });
 
@@ -56,7 +56,7 @@
 //               if (response.errors) throw response.errors;
 //               evalAndEmit(response.javascript, input, readyForMore);
 //               if (closed && pendingCount === 0) {
-//                 stdout.senderClose();
+//                 stdout.closeWrite();
 //               }
 //             } catch (e) {
 //               env.helpers.fail(env, stdout, e);
@@ -68,7 +68,7 @@
 //           try {
 //             if (response.errors) throw response.errors;
 //             evalAndEmit(response.javascript);
-//             stdout.senderClose();
+//             stdout.closeWrite();
 //           } catch (e) {
 //             env.helpers.fail(env, stdout, e);
 //           }

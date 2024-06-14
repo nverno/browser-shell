@@ -25,27 +25,27 @@ async function unregisterContentScripts(
   }
 }
 
-const STORED_KEYS: string[] = ['commands'];
+// const STORED_KEYS: string[] = ['commands'];
 
 export class BackgroundPage {
-  memory: { [key: string]: any } = STORED_KEYS.reduce(
-    (acc, k) => ({ [k]: undefined, ...acc }), {}
-  );
+  // memory: { [key: string]: any } = STORED_KEYS.reduce(
+  //   (acc, k) => ({ [k]: undefined, ...acc }), {}
+  // );
 
   constructor() {
     this.listen();
-    addEventListener('activate', (_e) => this.updateMemory());
-    debug('Memory: %O', this.memory);
+    // addEventListener('activate', (_e) => this.updateMemory());
+    // debug('Memory: %O', this.memory);
   }
 
-  updateMemory() {
-    chrome.storage.local.get(STORED_KEYS).then((items) => {
-      for (const key of STORED_KEYS) {
-        if (key in items)
-          this.memory[key] = items[key];
-      }
-    });
-  }
+  // updateMemory() {
+  //   chrome.storage.local.get(STORED_KEYS).then((items) => {
+  //     for (const key of STORED_KEYS) {
+  //       if (key in items)
+  //         this.memory[key] = items[key];
+  //     }
+  //   });
+  // }
 
   listen() {
     chrome.runtime.onMessage.addListener(
@@ -54,77 +54,72 @@ export class BackgroundPage {
         debug("Remote received from %s (%s): %j",
           sender.tab?.url, sender.tab?.incognito && 'incognito', request);
 
-        const handler = async () => {
+        (async () => {
           switch (request.command) {
-            case 'echo':
+            case 'listCommands':
               debug('%j', request);
-              sendResponse();
-              break;
+              return [
+                'listCommands',
+                'getHistory', 'recordCommand',
+                'insertCSS', 'removeCSS',
+                'executeScript', 'unregisterScripts',
+                'download',
+              ];
 
-            case 'getHistory':
-              sendResponse({ commands: this.memory.commands || [] });
-              break;
+            // case 'getHistory':
+            //   sendResponse({ commands: this.memory.commands || [] });
+            //   break;
 
-            case 'recordCommand':
-              this.updateMemory();
-              this.memory.commands ||= [];
-              this.memory.commands.unshift(request.payload);
-              this.memory.commands = this.memory.commands.slice(0, 51);
-              chrome.storage.local
-                .set({ commands: this.memory.commands })
-                .then(() => sendResponse())
-                .catch(errors => sendResponse({ errors }));
-              break;
+            // case 'recordCommand':
+            //   this.updateMemory();
+            //   this.memory.commands ||= [];
+            //   this.memory.commands.unshift(request.payload);
+            //   this.memory.commands = this.memory.commands.slice(0, 51);
+            //   chrome.storage.local
+            //     .set({ commands: this.memory.commands })
+            //     .then(() => sendResponse())
+            //     .catch(errors => sendResponse({ errors }));
+            //   break;
 
             case 'insertCSS': {
               const { payload: { target, ...opts } } = request
-              chrome.scripting.insertCSS({
+              return chrome.scripting.insertCSS({
                 target: { tabId: sender.tab.id, ...target },
                 ...opts
-              }).then(() => sendResponse())
-                .catch(errors => sendResponse({ errors }));;
+              });
             }
-              break;
 
             case 'removeCSS': {
               const { payload: { target, ...opts } } = request
-              chrome.scripting.removeCSS({
+              return chrome.scripting.removeCSS({
                 target: { tabId: sender.tab.id, ...target },
                 ...opts,
-              }).then(() => sendResponse())
-                .catch(errors => sendResponse({ errors }));
+              });
             }
-              break;
 
             case 'executeScript': {
               const { payload: { target, ...opts } } = request
-              chrome.scripting
+              return chrome.scripting
                 .executeScript({
                   target: { tabId: sender.tab.id, ...target },
                   ...opts,
-                })
-                .then(injectionResults => {
-                  for (const frameResult of injectionResults) {
-                    const { frameId, result } = frameResult;
-                    debug(`Frame ${frameId} result: %O`, result);
-                  }
-                  sendResponse({ result: injectionResults })
-                })
-                .catch(errors => sendResponse({ errors }));
+                });
+              // .then(injectionResults => {
+              //   for (const frameResult of injectionResults) {
+              //     const { frameId, result } = frameResult;
+              //     debug(`Frame ${frameId} result: %O`, result);
+              //   }
+              //   sendResponse({ result: injectionResults })
             }
-              break;
 
             case 'unregisterScripts':
-              unregisterContentScripts(request.payload)
-                .then(() => sendResponse({}))
-                .catch(errors => sendResponse({ errors }));
-              break;
+              return unregisterContentScripts(request.payload);
 
             case 'openTab':
-              break;
+              throw new Error('unimplemented');
 
             case 'download':
-              chrome.downloads
+              return chrome.downloads
                 .download({
                   conflictAction: 'uniquify',
                   ...request.payload
@@ -132,15 +127,15 @@ export class BackgroundPage {
                 .then((id) => {
                   if (isNumber(id)) openWhenComplete(id);
                   sendResponse(id);
-                })
-                .catch(errors => sendResponse({ errors }));
-              break;
+                });
 
             default:
-              sendResponse({ errors: `unknown command: ${request.command}` });
+              throw new Error(`unknown command: ${request.command}`);
           }
-        };
-        handler();
+        })()
+          .then(res => sendResponse(res))
+          .catch(errors => sendResponse({ errors }));
+
         // Return true to indicate async message passing:
         // http://developer.chrome.com/extensions/runtime#event-onMessage
         return true;

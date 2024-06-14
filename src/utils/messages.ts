@@ -7,8 +7,7 @@ export interface IMessage {
 
 export const sendMessage = async (message: IMessage) => {
   message.target ||= 'background';
-  const res = await chrome.runtime
-    .sendMessage(chrome.runtime.id, message);
+  const res = await chrome.runtime.sendMessage(chrome.runtime.id, message);
   return res;
 }
 

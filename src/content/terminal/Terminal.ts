@@ -1,9 +1,10 @@
 import $ from 'jquery';
-import { Debug, escapeAndLinkify, truncate, sendMessage } from '~utils';
-import { CommandParser, Commands, commands } from '~content';
+import { Debug, escapeAndLinkify, truncate, sendMessage, IMessage } from '~utils';
+import { commands } from '~content';
 import { BrowserShell } from '../BrowserShell';
 import { TerminalWindow } from './TerminalWindow';
-import { ExecEnv } from '~content/commands/ExecEnv';
+import { Commands } from '~content/exec';
+import { StreamExec, StreamEnv } from '~content/exec/stream';
 
 const debug = Debug('terminal');
 const DONT_RECORD = [
@@ -14,7 +15,7 @@ const MAX_OUTPUT_BUFFER: number = 1024
 export class Terminal {
   win: TerminalWindow;
   shell: BrowserShell;
-  bin: Commands = commands;
+  bin: Commands<any> = commands as any;
   $body: JQuery<HTMLBodyElement>;
   $textarea: JQuery<HTMLTextAreaElement>;
   partialCmd: string | number | string[] = '';
@@ -44,28 +45,8 @@ export class Terminal {
     // Clicking anywhere on terminal focuses prompt
     // XXX(5/27/24): shouldn't keep focusing when trying to select/copy stuff
     this.$body.on('click', () => this.focusPrompt());
-    this.setupBin();
-    this.setupNewTerminalSession();
+    this.setupHistory();
     this.initInput();
-  }
-
-  setupBin() {
-    debug('Bin: %O', this.bin);
-  }
-
-  setupNewTerminalSession() {
-    this.remote('getHistory', {}, (response: any) => {
-      debug('setup history: %O', response);
-      if (!this.history.length) {
-        for (let command of response.commands) {
-          this.history.unshift({
-            command: command.command,
-            output: command.output.split("\n")
-          });
-        }
-        this.historyIndex = this.history.length;
-      }
-    });
   }
 
   hidePrompt() {
@@ -80,42 +61,22 @@ export class Terminal {
     this.$textarea.trigger('focus');
   }
 
+  hide() {
+    this.shell.hideTerminal();
+  }
+
+  show() {
+    this.shell.showTerminal();
+  }
+
   toggleFullscreen() {
     this.win?.toggleFullscreen();
   }
 
-  showHistory(change: string) {
-    debug('history: %O', this.history);
-    if (change === 'up') {
-      if (this.historyIndex === this.history.length) this.partialCmd = this.val();
-      this.historyIndex -= 1;
-      if (this.historyIndex < 0) this.historyIndex = 0;
-      if (this.history[this.historyIndex]) {
-        this.$textarea.val(this.history[this.historyIndex].command);
-        this.historyPreview(
-          this.history[this.historyIndex].output,
-          this.history.length - this.historyIndex
-        );
-      }
-    } else {
-      this.historyIndex += 1;
-      if (this.historyIndex === this.history.length) {
-        this.$textarea.val(this.partialCmd);
-        this.historyPreview(null);
-      } else if (this.historyIndex > this.history.length) {
-        this.historyIndex = this.history.length;
-      } else {
-        if (this.history[this.historyIndex]) {
-          this.$textarea.val(this.history[this.historyIndex].command);
-          this.historyPreview(
-            this.history[this.historyIndex].output,
-            this.history.length - this.historyIndex
-          );
-        }
-      }
-    }
-  }
 
+  /**
+   * Input
+   */
   clearInput() {
     this.partialCmd = '';
     this.historyIndex = this.history.length;
@@ -254,16 +215,10 @@ export class Terminal {
     return this.$textarea.val() as string;
   }
 
-  historyPreview(output: string[] | null, index: number = 1) {
-    if (output) {
-      this.$historyMetadata.html(
-        `output#${index}: ` +
-        escapeAndLinkify(truncate(output.join(", "), 100))).show();
-    } else {
-      this.$historyMetadata.hide();
-    }
-  }
 
+  /** 
+   * Run input
+   */
   process() {
     const text = this.val().trim();
 
@@ -271,12 +226,12 @@ export class Terminal {
       this.write("$ " + text, 'input');
       this.clearInput();
 
-      const env = new ExecEnv(this);
-      const parser = new CommandParser(text, env);
+      const env = new StreamEnv(this);
+      const parser = new StreamExec(text, env);
 
       if (!parser.isValid()) {
         const errorMessage = parser.errors.join(", ");
-        this.recordCommand(text, ["Error: " + errorMessage]);
+        this.addToHistory(text, ["Error: " + errorMessage]);
         this.error(errorMessage);
         return;
       }
@@ -295,15 +250,14 @@ export class Terminal {
       const stream = parser.execute();
       const outputLog: string[] = [];
 
-      stream.onSenderClose(() => {
+      stream.onCloseWrite(async () => {
         this.$body.off("keydown", signalHandler);
-        this.recordCommand(text, outputLog, (response: any) => {
-          env.onCommandFinish.forEach((callback) => callback(response));
-        });
+        const res = await this.addToHistory(text, outputLog);
+        env.onCommandFinish.forEach((callback) => callback(res));
         this.showPrompt();
       });
 
-      stream.receive((data, readyForMore: () => void) => {
+      stream.read((data, readyForMore: () => void) => {
         this.write(data, 'output');
         outputLog.push(data);
         if (outputLog.length > MAX_OUTPUT_BUFFER)
@@ -313,13 +267,16 @@ export class Terminal {
     }
   }
 
+  /**
+   * Output
+   */
   error(text: string | string[]) {
     if (Array.isArray(text)) text = text.join(", ");
     this.write(text, 'error');
   }
 
   write(text: string, type: string) {
-    text.toString().split("\n").forEach((line) => {
+    text?.toString().split("\n").forEach((line) => {
       this.$history.append(
         $("<div class='item'></div>")
           .html(escapeAndLinkify(line))
@@ -329,36 +286,109 @@ export class Terminal {
     this.$history.scrollTop(this.$history[0].scrollHeight);
   }
 
-  recordCommand(command: string, output: string[], callback?: (response: any) => void) {
+
+  /** 
+   * History 
+   */
+  setupHistory() {
+    this.remote({
+      target: 'history',
+      command: 'getHistory',
+      payload: {}
+    })
+      .then(data => {
+        debug('loaded history: %O', data);
+        const commandHistory = data.commandHistory || [];
+
+        if (!this.history.length) {
+          for (let { command, output } of commandHistory) {
+            this.history.unshift({
+              command,
+              output: output.split("\n")
+            });
+          }
+          this.historyIndex = this.history.length;
+        }
+      })
+      .catch(errors => this.error(errors));
+
+    debug('setup storage.onChanged listener');
+    // Listen for changes to history from other tabs and such
+    chrome.storage.onChanged.addListener((changes, area) => {
+      debug('storage change: %s, %o', area, changes);
+      if (area === 'local' && changes.commandHistory) {
+        debug('history changes: %O', changes.commandHistory);
+        // TODO(6/15/24): update history
+      }
+    });
+  }
+
+  async remote(message: IMessage): Promise<any> {
+    message.target ||= 'history';
+    debug('remote: %o', message);
+
+    try {
+      const res = await sendMessage(message);
+      return res;
+    } catch (errors) {
+      this.error(errors);
+    }
+  }
+
+  // Handle history storage in background
+  async addToHistory(command: string, output: string[]): Promise<any> {
     if (DONT_RECORD[command])
       return;
     this.history.push({ command, output });
     this.historyIndex = this.history.length;
-    this.remote('recordCommand', { command, output: output.join("\n") }, callback);
-  }
-
-  remote(
-    command: string,
-    options: any,
-    callback: (response: any) => void = (response) => {
-      if (response?.errors)
-        this.error(response.errors);
-    }) {
-    debug('send background: %s, %o, %O', command, options, callback);
-    sendMessage({ command, payload: options })
-      .then(res => callback(res))
-      .catch(errors => this.error(errors));
+    return this.remote({
+      command: 'addCommand',
+      payload: { command, output: output.join("\n") }
+    });
   }
 
   clear() {
     this.$history.empty();
   }
 
-  hide() {
-    this.shell.hideTerminal();
+  historyPreview(output: string[] | null, index: number = 1) {
+    if (output) {
+      this.$historyMetadata.html(
+        `output#${index}: ` +
+        escapeAndLinkify(truncate(output.join(", "), 100))).show();
+    } else {
+      this.$historyMetadata.hide();
+    }
   }
 
-  show() {
-    this.shell.showTerminal();
+  showHistory(change: string) {
+    if (change === 'up') {
+      if (this.historyIndex === this.history.length) this.partialCmd = this.val();
+      this.historyIndex -= 1;
+      if (this.historyIndex < 0) this.historyIndex = 0;
+      if (this.history[this.historyIndex]) {
+        this.$textarea.val(this.history[this.historyIndex].command);
+        this.historyPreview(
+          this.history[this.historyIndex].output,
+          this.history.length - this.historyIndex
+        );
+      }
+    } else {
+      this.historyIndex += 1;
+      if (this.historyIndex === this.history.length) {
+        this.$textarea.val(this.partialCmd);
+        this.historyPreview(null);
+      } else if (this.historyIndex > this.history.length) {
+        this.historyIndex = this.history.length;
+      } else {
+        if (this.history[this.historyIndex]) {
+          this.$textarea.val(this.history[this.historyIndex].command);
+          this.historyPreview(
+            this.history[this.historyIndex].output,
+            this.history.length - this.historyIndex
+          );
+        }
+      }
+    }
   }
 }

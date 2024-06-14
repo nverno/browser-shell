@@ -8,7 +8,7 @@
   </head>
   <body>
     <div class="container">
-      <form id="settings-form">
+      <form id="options">
         <section>
           <div class="section-title">
             <span>Settings</span>
@@ -22,6 +22,13 @@
                   <input type="text" id="debugPrefix" name="debugPrefix" />
                 </span>
               </label>
+              
+              <div class="li">
+                <label for="debugStorage">
+                  <span>Toggle storage debug</span>
+                  <input type="checkbox" name="debugStorage" id="debugStorage"/>
+                </label>
+              </div>
             </div>
 
             <div class="li">
@@ -62,6 +69,7 @@
         <button type="submit">Save Settings</button>
       </form>
     </div>
-    <script src="./src/settings/settings.ts" type="module"></script>
+    <!-- type="module" allows you to use top level await -->
+    <script defer src="./src/settings/settings.ts" type="module"></script>
   </body>
 </html>

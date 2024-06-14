@@ -1,7 +1,8 @@
 import $ from 'jquery';
-import { loadCSS, Debug } from '~utils';
+import { loadCSS } from '~utils';
 import './terminal-window.css';
-const debug = Debug('terminalWindow');
+// import { Debug } from '~utils';
+// const debug = Debug('terminalWindow');
 
 export interface TerminalWindowOptions {
   css?: { [key: string]: string };

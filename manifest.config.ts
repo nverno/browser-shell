@@ -47,8 +47,8 @@ export default defineManifest(async () => {
           // "terminal.css",
           "vendor/selectorgadget_combined.js",
           "vendor/selectorgadget_combined.css",
-          "assets/**/*.js",
-          "assets/**/*.css",
+          "assets/*.js",
+          "assets/*.css",
         ],
         matches: [
           "<all_urls>"
