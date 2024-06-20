@@ -7,10 +7,12 @@
   "type": "module",
   "scripts": {
     "build": "tsc && vite build --mode development",
-    "build:tsc": "tsc && tsc-alias",
     "build:lodash": "lodash include=chain",
     "build:production": "tsc && vite build",
+    "build:tsc": "tsc && tsc-alias",
     "dev": "vite --host",
+    "lint": "eslint .",
+    "lint:fix": "npm run lint -- --fix",
     "start": "ts-node ./src/index.ts"
   },
   "dependencies": {
@@ -21,12 +23,16 @@
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.23",
+    "@eslint/js": "^9.5.0",
     "@types/debug": "^4.1.12",
+    "@types/eslint__js": "^8.42.3",
     "@types/jquery": "^3.5.30",
     "@types/lodash": "^4.17.4",
     "@types/node": "^20.12.12",
     "autoprefixer": "^10.4.19",
     "chrome-types": "^0.1.284",
+    "eslint": "^9.5.0",
+    "globals": "^15.6.0",
     "lodash-cli": "^4.17.5",
     "postcss": "^8.4.38",
     "postcss-import": "^16.1.0",
@@ -35,6 +41,7 @@
     "tsc-alias": "^1.8.10",
     "tslib": "^2.6.2",
     "typescript": "^5.4.5",
+    "typescript-eslint": "^7.13.1",
     "vite": "^5.2.11",
     "vite-tsconfig-paths": "^4.3.2"
   }

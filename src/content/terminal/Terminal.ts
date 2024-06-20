@@ -1,30 +1,27 @@
 import $ from 'jquery';
-import { Debug, escapeAndLinkify, truncate, sendMessage, IMessage } from '~utils';
+import { sitFor, Debug, escapeAndLinkify } from '~utils';
 import { commands } from '~content';
 import { BrowserShell } from '../BrowserShell';
 import { TerminalWindow } from './TerminalWindow';
 import { Commands } from '~content/exec';
-import { StreamExec, StreamEnv } from '~content/exec/stream';
+import { PipeExec, PipeEnv } from '~content/exec/pipe';
+import History from './History';
 
 const debug = Debug('terminal');
-const DONT_RECORD = [
-  "exit", "help", "clear", "_"
-].reduce((acc, s) => ({ [s]: true, ...acc }), {});
 const MAX_OUTPUT_BUFFER: number = 1024
 
 export class Terminal {
   win: TerminalWindow;
   shell: BrowserShell;
   bin: Commands<any> = commands as any;
+  alias: { [key: string]: string } = {};
   $body: JQuery<HTMLBodyElement>;
   $textarea: JQuery<HTMLTextAreaElement>;
-  partialCmd: string | number | string[] = '';
+  $output: JQuery<HTMLElement>;
+  history: History;
+  // partialCmd: string | number | string[] = '';
   lastAutocompleteIndex = 0;
   lastAutocompletePrefix = '';
-  $history: JQuery<HTMLElement>;
-  $historyMetadata: JQuery<HTMLElement>;
-  history: { command: string, output: string[] }[] = [];
-  historyIndex: number;
 
   constructor(win: TerminalWindow, shell: BrowserShell, _options: any = {}) {
     this.win = win;
@@ -32,62 +29,105 @@ export class Terminal {
     this.$body = win.$body;
     this.$body.append(`
     <div id='terminal-app'>
-      <div class='history'></div>
+      <div class='output'></div>
       <div class='prompt-wrapper'>
         <span class='prompt'>$</span>
         <textarea spellcheck='false' autocorrect='false'></textarea>
       </div>
-      <div class='history-metadata'></div>
+      <div class='history-preview'></div>
     </div>`);
-    this.$history = this.$body.find(".history");
-    this.$historyMetadata = this.$body.find(".history-metadata");
+    this.$output = this.$body.find(".output");
     this.$textarea = this.$body.find("textarea");
     // Clicking anywhere on terminal focuses prompt
     // XXX(5/27/24): shouldn't keep focusing when trying to select/copy stuff
     this.$body.on('click', () => this.focusPrompt());
-    this.setupHistory();
-    this.initInput();
+    this.history = new History(this.$body);
+    this.setupCommands();
+    this.handleInput();
   }
 
+  /** Clear shell output */
+  clear() {
+    this.history.clearPreview();
+    this.$output.empty();
+  }
+
+  /** Hide terminal prompt */
   hidePrompt() {
     this.$body.find(".prompt, textarea").hide();
   }
 
+  /** Show terminal prompt and focus it */
   showPrompt() {
     this.$body.find(".prompt, textarea").show().trigger('focus');
   }
 
+  /** Focus terminal prompt */
   focusPrompt() {
     this.$textarea.trigger('focus');
   }
 
+  /** Hide terminal */
   hide() {
     this.shell.hideTerminal();
   }
 
+  /** Show terminal */
   show() {
     this.shell.showTerminal();
   }
 
+  /** Toggle terminal fullscreen */
   toggleFullscreen() {
     this.win?.toggleFullscreen();
   }
 
-
-  /**
-   * Input
-   */
+  /** Clear terminal input */
   clearInput() {
-    this.partialCmd = '';
-    this.historyIndex = this.history.length;
-    this.historyPreview(null);
+    this.history.clearPreview();
     this.setVal('');
   }
 
-  /** Line editing commands */
+  // Add predefined aliases
+  setupCommands() {
+    Object.entries(this.bin).forEach(([cmd, opts]) => {
+      if (opts.alias)
+        opts.alias.forEach(alias => this.defineAlias(alias, cmd));
+    });
+  }
+
+  /** Un/define aliases */
+  defineAlias(alias: string, cmd?: string) {
+    if (cmd && !this.bin[cmd]) {
+      this.error(`unknown command: '${cmd}'`);
+    } else {
+      const prev = this.alias[alias];
+      if (cmd && cmd === prev) return;
+      if (cmd && prev)
+        this.error(`Overwritting alias ${alias}=${cmd} (previous: ${prev})`);
+      if (prev)
+        this.bin[prev].alias = this.bin[prev]?.alias.filter((a) => a !== alias);
+      if (!cmd) {
+        delete this.alias[alias];
+      } else {
+        this.alias[alias] = cmd;
+        this.bin[cmd].alias ||= [];
+        if (!this.bin[cmd].alias.includes(alias))
+          this.bin[cmd].alias.push(alias);
+      }
+    }
+  }
+
+  /** Handle line editing commands */
   handleEdit(e: JQuery.KeyDownEvent): boolean {
     let pos = 0;
-    if (e.altKey) {
+    if (e.altKey && e.ctrlKey) {
+      switch (e.code) {
+        case "KeyK": // C-M-k clear terminal
+          this.clear();
+          break;
+      }
+    } else if (e.altKey) {
       let dx = 1;
       switch (e.code) {
         case "KeyB": // backward word
@@ -134,15 +174,15 @@ export class Terminal {
     e.preventDefault();
     if (pos >= 0)
       this.$textarea[0].setSelectionRange(pos, pos);
-    // debug("handled edit: alt=%s ctrl=%s code=%s", e.altKey, e.ctrlKey, e.code);
+
     return true;
   }
 
-  initInput() {
-    this.$textarea.on("keydown", (e: JQuery.KeyDownEvent) => {
-      if (this.handleEdit(e)) return;
-      // debug("%o", e);
-
+  /** Handle keys in terminal */
+  handleInput() {
+    this.$textarea.on("keydown", async (e: JQuery.KeyDownEvent) => {
+      if (this.handleEdit(e))
+        return;
       let propagate = false;
       let autocompleteIndex = 0;
       let autocompletePrefix = '';
@@ -153,17 +193,17 @@ export class Terminal {
 
       switch (key) {
         case "Enter":
-          this.process();
+          await this.process();
           break;
 
         case "ArrowUp":
           e.preventDefault();
-          this.showHistory('up');
+          this.history.show('prev');
           break;
 
         case "ArrowDown":
           e.preventDefault();
-          this.showHistory('down');
+          this.history.show('next');
           break;
 
         case "ArrowRight" || "ArrowLeft":
@@ -196,8 +236,8 @@ export class Terminal {
 
         default:
           propagate = true;
-          this.historyPreview(null);
-          this.historyIndex = this.history.length;
+          if (!(e.altKey || e.ctrlKey))
+            this.history.clearPreview();
           break;
       }
 
@@ -216,32 +256,34 @@ export class Terminal {
   }
 
 
-  /** 
-   * Run input
-   */
-  process() {
+  /** Run current terminal command-line */
+  async process() {
     const text = this.val().trim();
 
     if (text) {
       this.write("$ " + text, 'input');
       this.clearInput();
 
-      const env = new StreamEnv(this);
-      const parser = new StreamExec(text, env);
+      const env = new PipeEnv(this);
+      const parser = new PipeExec(text, env);
 
       if (!parser.isValid()) {
         const errorMessage = parser.errors.join(", ");
-        this.addToHistory(text, ["Error: " + errorMessage]);
+        this.history.add(text, ["Error: " + errorMessage]);
         this.error(errorMessage);
         return;
       }
 
       this.hidePrompt();
 
+      // Handle interrupts (C-c C-c)
+      // First C-c is a 'soft' interrupt allowing commands to try to handle it
+      // gracefully.
+      // Second C-c force cancels all timers and closes all pipes.
       const signalHandler = (e: JQuery.KeyDownEvent) => {
         if (e.ctrlKey && e.key === "c") {
           e.preventDefault();
-          this.error("Caught control-c");
+          this.error("^C");
           env.interrupt();
         }
       };
@@ -250,145 +292,48 @@ export class Terminal {
       const stream = parser.execute();
       const outputLog: string[] = [];
 
-      stream.onCloseWrite(async () => {
+      stream.onClose(async () => {
         this.$body.off("keydown", signalHandler);
-        const res = await this.addToHistory(text, outputLog);
+        const res = await this.history.add(text, outputLog);
         env.onCommandFinish.forEach((callback) => callback(res));
         this.showPrompt();
       });
 
-      stream.read((data, readyForMore: () => void) => {
-        this.write(data, 'output');
-        outputLog.push(data);
-        if (outputLog.length > MAX_OUTPUT_BUFFER)
-          outputLog.shift();
-        readyForMore();
-      });
+      while (env.interrupted <= 1) {
+        try {
+          const data = await stream.read();
+          if (!data) break;
+
+          this.write(data, 'output');
+          await sitFor(100);
+
+          outputLog.push(data);
+          if (outputLog.length > MAX_OUTPUT_BUFFER)
+            outputLog.shift();
+        } catch (error) {
+          // this.error(error);
+          break;
+        }
+      }
+      stream.close();
     }
   }
 
-  /**
-   * Output
-   */
+  /** Write error output in terminal */
   error(text: string | string[]) {
     if (Array.isArray(text)) text = text.join(", ");
     this.write(text, 'error');
   }
 
+  /** Write text output with CSS class type in terminal */
   write(text: string, type: string) {
     text?.toString().split("\n").forEach((line) => {
-      this.$history.append(
+      this.$output.append(
         $("<div class='item'></div>")
           .html(escapeAndLinkify(line))
           .addClass(type)
       );
     });
-    this.$history.scrollTop(this.$history[0].scrollHeight);
+    this.$output.scrollTop(this.$output[0].scrollHeight);
   }
-
-
-  /** 
-   * History 
-   */
-  setupHistory() {
-    this.remote({
-      target: 'history',
-      command: 'getHistory',
-      payload: {}
-    })
-      .then(data => {
-        debug('loaded history: %O', data);
-        const commandHistory = data.commandHistory || [];
-
-        if (!this.history.length) {
-          for (let { command, output } of commandHistory) {
-            this.history.unshift({
-              command,
-              output: output.split("\n")
-            });
-          }
-          this.historyIndex = this.history.length;
-        }
-      })
-      .catch(errors => this.error(errors));
-
-    debug('setup storage.onChanged listener');
-    // Listen for changes to history from other tabs and such
-    chrome.storage.onChanged.addListener((changes, area) => {
-      debug('storage change: %s, %o', area, changes);
-      if (area === 'local' && changes.commandHistory) {
-        debug('history changes: %O', changes.commandHistory);
-        // TODO(6/15/24): update history
-      }
-    });
-  }
-
-  async remote(message: IMessage): Promise<any> {
-    message.target ||= 'history';
-    debug('remote: %o', message);
-
-    try {
-      const res = await sendMessage(message);
-      return res;
-    } catch (errors) {
-      this.error(errors);
-    }
-  }
-
-  // Handle history storage in background
-  async addToHistory(command: string, output: string[]): Promise<any> {
-    if (DONT_RECORD[command])
-      return;
-    this.history.push({ command, output });
-    this.historyIndex = this.history.length;
-    return this.remote({
-      command: 'addCommand',
-      payload: { command, output: output.join("\n") }
-    });
-  }
-
-  clear() {
-    this.$history.empty();
-  }
-
-  historyPreview(output: string[] | null, index: number = 1) {
-    if (output) {
-      this.$historyMetadata.html(
-        `output#${index}: ` +
-        escapeAndLinkify(truncate(output.join(", "), 100))).show();
-    } else {
-      this.$historyMetadata.hide();
-    }
-  }
-
-  showHistory(change: string) {
-    if (change === 'up') {
-      if (this.historyIndex === this.history.length) this.partialCmd = this.val();
-      this.historyIndex -= 1;
-      if (this.historyIndex < 0) this.historyIndex = 0;
-      if (this.history[this.historyIndex]) {
-        this.$textarea.val(this.history[this.historyIndex].command);
-        this.historyPreview(
-          this.history[this.historyIndex].output,
-          this.history.length - this.historyIndex
-        );
-      }
-    } else {
-      this.historyIndex += 1;
-      if (this.historyIndex === this.history.length) {
-        this.$textarea.val(this.partialCmd);
-        this.historyPreview(null);
-      } else if (this.historyIndex > this.history.length) {
-        this.historyIndex = this.history.length;
-      } else {
-        if (this.history[this.historyIndex]) {
-          this.$textarea.val(this.history[this.historyIndex].command);
-          this.historyPreview(
-            this.history[this.historyIndex].output,
-            this.history.length - this.historyIndex
-          );
-        }
-      }
-    }
-  }
-}
+};

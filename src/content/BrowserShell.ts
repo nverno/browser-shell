@@ -62,6 +62,9 @@ export class BrowserShell {
       } else if (isKey(config.commands.toggleFullscreen, e) && this.terminalShown()) {
         e.preventDefault();
         this.terminal.toggleFullscreen()!;
+      } else if (isKey(config.commands.clearShell, e) && this.terminalShown()) {
+        e.preventDefault();
+        this.terminal.clear()!;
       }
     });
   }

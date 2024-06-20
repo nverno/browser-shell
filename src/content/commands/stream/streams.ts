@@ -1,4 +1,4 @@
-import { Commands } from "~content/exec";
+import { Commands } from "./types";
 import { StreamEnv } from '~content/exec/stream';
 import { Stream } from "~content/io";
 

@@ -1,13 +1,13 @@
 
 
 export function maybeOpen(id) {
-  var openWhenComplete = [];
+  let openWhenComplete = [];
   try {
     openWhenComplete = JSON.parse(localStorage.openWhenComplete);
   } catch (e) {
     localStorage.openWhenComplete = JSON.stringify(openWhenComplete);
   }
-  var openNowIndex = openWhenComplete.indexOf(id);
+  const openNowIndex = openWhenComplete.indexOf(id);
   if (openNowIndex >= 0) {
     chrome.downloads.open(id);
     openWhenComplete.splice(openNowIndex, 1);
@@ -16,7 +16,7 @@ export function maybeOpen(id) {
 }
 
 export function openWhenComplete(downloadId) {
-  var ids = [];
+  let ids = [];
   try {
     ids = JSON.parse(localStorage.openWhenComplete);
   } catch (e) {

@@ -1,6 +1,6 @@
 import $ from "jquery";
 import { Debug, sendMessage, evaluateXpath } from '~utils';
-import { Commands } from '~content/exec';
+import { Commands } from './types';
 import { StreamEnv } from "~content/exec/stream";
 import { Stream } from "~content/io";
 const debug = Debug('dom');
@@ -168,7 +168,7 @@ export const domCommands: Commands<Stream, StreamEnv> = {
         SelectorGadget.toggle({ analytics: false });
 
         env.whenTrue(() =>
-          env.interrupted || $("#selectorgadget_path_field").length > 0,
+          env.interrupted > 0 || $("#selectorgadget_path_field").length > 0,
           () => {
             let lastVal: string;
             const timerId = env.setInterval(() => {
@@ -178,7 +178,7 @@ export const domCommands: Commands<Stream, StreamEnv> = {
               }
             }, 100);
             env.whenTrue(() =>
-              env.interrupted || $("#selectorgadget_path_field").length === 0,
+              env.interrupted > 0 || $("#selectorgadget_path_field").length === 0,
               () => {
                 env.clearTimer(timerId);
                 env.terminal.show();

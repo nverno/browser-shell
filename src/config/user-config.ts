@@ -1,6 +1,6 @@
 import { deepMerge } from '~utils';
 
-let userConfigDefault = {
+const userConfigDefault = {
   debug: {
     prefix: 'bs:*',
     storage: true,
@@ -13,6 +13,7 @@ let userConfigDefault = {
   },
   commands: {
     openShell: 'C-z',
+    clearShell: 'M-C-k',
     toggleFullscreen: 'M-l',
   },
   history: {

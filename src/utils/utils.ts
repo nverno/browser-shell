@@ -1,5 +1,11 @@
 import $ from "jquery";
 
+export const sitFor = async (ms: number): Promise<void> => {
+  return new Promise(resolve => {
+    setTimeout(() => resolve(), ms);
+  });
+};
+
 export const title = (): string => {
   return $("title").text().trim();
 };
@@ -8,9 +14,11 @@ export const not = (func: () => boolean): () => boolean => {
   return () => !func();
 };
 
-export const isNumber = (n) => {
+export const isNumber = (n: any) => {
   return !isNaN(parseFloat(n)) && isFinite(n);
 }
+
+export const isString = (val: any) => typeof val === 'string';
 
 export const escape = (text: string): string => {
   const entityMap: { [key: string]: string } = {

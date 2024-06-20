@@ -4,7 +4,7 @@ const debug = Debug('bg');
 
 export async function getCurrentTab(opts = { active: true, lastFocusedWindow: true }) {
   // `tab` will either be a `tabs.Tab` instance or `undefined`.
-  let [tab] = await chrome.tabs.query(opts);
+  const [tab] = await chrome.tabs.query(opts);
   return tab;
 }
 

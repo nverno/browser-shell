@@ -1,29 +1,28 @@
 import { PipeBase } from './Pipe';
+import { Debug } from '~utils';
+const debug = Debug('io');
 
 export abstract class IoBase<S extends PipeBase> {
   stream: S;
-  openForRead = false;
-  openForWrite = false;
   constructor(stream: S) {
     this.stream = stream;
   }
 };
 
 export class Reader<S extends PipeBase, T = any> extends IoBase<S> {
-  numReaders = 0;
-  closeReadCallbacks: (() => void)[] = [];
-
   constructor(stream: S) {
+    stream.numReader++;
     super(stream);
-    this.openForRead = true;
+    debug(`new ${stream.name}::Reader(${stream.numReader},${stream.numWriter})`);
   }
   read(): Promise<T | void> | void {
     return this.stream.read();
   }
+  async readAll(): Promise<T[] | void> {
+    return this.stream.readAll();
+  }
   close() {
-    if (--this.numReaders === 0) {
-      this.stream.closeRead();
-    }
+    return this.stream.closeRead();
   }
   onClose(callback: () => void) {
     this.stream.closeReadCallbacks.push(callback);
@@ -31,17 +30,16 @@ export class Reader<S extends PipeBase, T = any> extends IoBase<S> {
 };
 
 export class Writer<S extends PipeBase, T = any> extends IoBase<S> {
-  closeWriteCallbacks: (() => void)[] = [];
   constructor(stream: S) {
+    stream.numWriter++;
     super(stream);
-    this.openForRead = true;
-    this.closeWriteCallbacks = [];
+    debug(`new ${stream.name}::Writer(${stream.numReader},${stream.numWriter})`);
   }
   write(data: T) {
     this.stream.write(data);
   }
   close() {
-    this.stream.closeWrite();
+    return this.stream.closeWrite();
   }
   onClose(callback: () => void) {
     this.stream.closeWriteCallbacks.push(callback);

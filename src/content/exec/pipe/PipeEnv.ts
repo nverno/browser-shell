@@ -24,16 +24,24 @@ export class PipeEnv extends ExecEnv<Pipe> {
     }
   }
 
+  /** Check command arguments */
+  checkArgs(count: number, args: any, exact = false) {
+    if ((exact && args?.length !== count) || (!exact && args?.length < count)) {
+      this.terminal.error(`expected ${count} arguments, but got: ${args?.join(", ")}`);
+      this.interrupt(true);
+    }
+  }
+
   /** Terminate execution and report error message in Terminal. */
   fail(stdout: Pipe, message: string | string[]) {
     if (Array.isArray(message)) message = message.join(", ");
     this.terminal.error(message);
-    if (!stdout.writeClosed) {
-      // if (stdout.hasReceiver()) {
-      //   stdout.closeWrite();
-      // } else {
-      //   stdout.onReceiver(() => stdout.closeWrite());
-      // }
-    }
+    stdout.closeWrite();
+    // if (!stdout.writeClosed) {
+    // if (stdout.hasReceiver()) {
+    //   stdout.closeWrite();
+    // } else {
+    //   stdout.onReceiver(() => stdout.closeWrite());
+    // }
   }
 };

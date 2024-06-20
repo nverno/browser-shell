@@ -46,12 +46,15 @@ export class Stream<T = any> extends PipeBase<T> {
     this.onReadCallback?.();
   }
 
-  readAll(callback: (fullData: T[]) => void) {
-    const fullData: T[] = [];
-    this.read((data: T, readyForMore: () => void) => {
-      fullData.push(data);
-      readyForMore();
+  async readAll(callback: (fullData: T[]) => void): Promise<T[]|void> {
+    return new Promise((resolve, reject) => {
+      const fullData: T[] = [];
+      this.read((data: T, readyForMore: () => void) => {
+        fullData.push(data);
+        readyForMore();
+      });
+      return resolve(fullData);
+      // this.onCloseWrite(() => callback(fullData));
     });
-    this.onCloseWrite(() => callback(fullData));
   }
 }

@@ -58,7 +58,7 @@ body.terminal-iframe {
       }
     }
 
-    .history {
+    .output {
       max-height: 85%;
       overflow: auto;
 
@@ -87,7 +87,7 @@ body.terminal-iframe {
       }
     }
 
-    .history-metadata {
+    .history-preview {
       color: #888888;
     }
   }
