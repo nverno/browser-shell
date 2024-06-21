@@ -20,6 +20,10 @@ export const isNumber = (n: any) => {
 
 export const isString = (val: any) => typeof val === 'string';
 
+export const isNil = (val: any) => val === undefined || val === null;
+
+export const isEmpty = val => val == null || !(Object.keys(val) || val).length;
+
 export const escape = (text: string): string => {
   const entityMap: { [key: string]: string } = {
     "&": "&amp;",
@@ -39,7 +43,6 @@ export const escapeAndLinkify = (text: string): string => {
 export const truncate = (text: string, length: number): string => {
   return text.length > length - 3 ? text.slice(0, length - 3) + "..." : text;
 };
-
 
 type IObject = { [key: string]: any };
 
@@ -61,10 +64,10 @@ export const mergeCombineFn = (
  * When called with mergeCombineFn, keys from A override those in B.
  */
 export const deepMerge = (
-  a: IObject, b: IObject, fn = mergeCombineFn, max_depth = 2
-) => [
+  a: IObject, b: IObject, fn: typeof mergeCombineFn = mergeCombineFn, max_depth = 2
+) => ([
   ...new Set([...Object.keys(a), ...Object.keys(b)])
 ].reduce((acc, key) => ({
   ...acc,
   [key]: fn(key, a[key], b[key], max_depth - 1)
-}), {});
+}), {}));

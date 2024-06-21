@@ -1,7 +1,7 @@
 import { Debug } from '~utils';
 import { sendSigPipe } from './SigPipe';
 import { Reader, Writer } from './Io';
-const debug = Debug('pipe');
+const debug = Debug('io:pipe');
 
 export abstract class PipeBase<T = any> {
   name: string;
@@ -15,9 +15,8 @@ export abstract class PipeBase<T = any> {
   constructor(name: string) {
     this.name = name;
   }
-
-  abstract read(args?: any): Promise<T | void> | void;
-  abstract readAll(args?: any): Promise<T[] | void>;
+  abstract read(args?: any): Promise<T | void>;
+  abstract readAll(args?: any): Promise<T[]>;
   abstract write(data: T): void;
 
   log(fmt = "%s", ...args: any[]) {
@@ -45,7 +44,7 @@ export abstract class PipeBase<T = any> {
     }
     if (--this.numWriter === 0) {
       this.writeClosed = true;
-      this.log('write closed');
+      this.log('CLOSE write');
       this.closeWriteCallbacks.forEach(fn => fn());
       return true;
     }
@@ -68,7 +67,7 @@ export abstract class PipeBase<T = any> {
       // throw new Error(`pipe already read-closed '${this.name}'`);
     }
     if (--this.numReader === 0) {
-      this.log('read closed');
+      this.log('CLOSE read');
       this.readClosed = true;
       this.closeReadCallbacks.forEach(fn => fn());
       return true;
@@ -98,12 +97,10 @@ export abstract class PipeBase<T = any> {
 export class Pipe<T = any> extends PipeBase<T> {
   buffer: T[] = [];
   readers: ((value?: T) => void)[] = [];
-  writeClosed = false;
-  readClosed = false;
 
   constructor(name: string) {
     super(name);
-    debug('created "%s"', name);
+    super.log('CREATE');
   }
 
   write(value: T): void {
@@ -119,47 +116,45 @@ export class Pipe<T = any> extends PipeBase<T> {
     }
   }
 
-  read(): Promise<T | void> {
-    return new Promise((resolve, reject) => {
+  async read(): Promise<T | void> {
+    return new Promise((resolve, _reject) => {
       if (this.buffer.length > 0) {
         resolve(this.buffer.shift()!);
       } else if (this.writeClosed) {
         this.closeRead();
-        reject(new Error(`pipe is write-closed '${this.name}'`));
+        resolve(null);
       } else {
         this.readers.push(resolve);
       }
     });
   }
 
-  async readAll(): Promise<T[] | void> {
+  async readAll(): Promise<T[]> {
     const res = [];
-    while (true) {
-      try {
-        const data = await this.read();
-        res.push(data);
-      } catch (error) {
-        this.closeRead();
-        break;
-      }
-    }
+    let cur: any;
+    while ((cur = await this.read()) != null)
+      res.push(cur);
     return res;
   }
 
   closeWrite() {
-    if (!super.closeWrite()) return false;
+    if (!super.closeWrite())
+      return false;
+
     while (this.readers.length > 0) {
       const reader = this.readers.shift()!;
-      reader(this.buffer.shift());
+      reader(this.buffer.shift() || null);
     }
     return true;
   }
 
   closeRead() {
-    if (!super.closeRead()) return false
+    if (!super.closeRead())
+      return false
+
     while (this.readers.length > 0) {
       const reader = this.readers.shift()!;
-      reader();
+      reader(null);
     }
     return true;
   }

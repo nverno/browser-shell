@@ -34,9 +34,19 @@ body.terminal-iframe {
 
     .prompt-wrapper {
       overflow: hidden;
+      display: flex;
+      flex-direction: row;
+      white-space: nowrap;
+      
+      .prompt-info {
+        color: #9af;
+        padding: 0;
+        margin: 0;
+        margin-right: 3px;
+      }
 
       .prompt {
-        float: left;
+        /* float: left; */
         margin: 0;
         margin-right: 8px;
         padding: 0;
@@ -51,7 +61,7 @@ body.terminal-iframe {
         outline: none;
         color: #3AF540;
         font-family: "Courier New", Courier, monospace;
-        float: left;
+        /* float: left; */
         font-size: 14px;
         padding: 0;
         height: 17px;

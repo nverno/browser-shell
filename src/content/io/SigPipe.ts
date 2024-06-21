@@ -1,5 +1,5 @@
 import { Debug } from '~utils';
-const debug = Debug('signal');
+const debug = Debug('io:signal');
 
 export class SigPipe<T = any> extends Event {
   constructor(public detail: T) {

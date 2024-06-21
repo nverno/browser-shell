@@ -3,7 +3,7 @@ import { Stream } from '~content/io';
 import { StreamEnv } from '~content/exec/stream';
 import { Command } from './types';
 
-const debug = Debug('base');
+const debug = Debug('cmd:base');
 
 export const baseCommands: { [key: string]: Command<Stream, StreamEnv> } = {
   help: {

@@ -14,6 +14,7 @@ const userConfigDefault = {
   commands: {
     openShell: 'C-z',
     clearShell: 'M-C-k',
+    toggleHistoryFiltering: 'M-r',
     toggleFullscreen: 'M-l',
   },
   history: {

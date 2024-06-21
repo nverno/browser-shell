@@ -75,4 +75,4 @@ export default defineManifest(async () => {
       default_popup: "settings.html"
     }
   }
-})
+});

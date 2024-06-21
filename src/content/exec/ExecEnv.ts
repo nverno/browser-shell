@@ -38,18 +38,20 @@ export class ExecEnv<T extends PipeBase> {
   /** setInterval wrapper that registers interval
    * @returns timeout Id
    */
-  setInterval(callback: () => void, ms?: number, stdout?: T): number {
+  setInterval(callback: () => void, ms?: number, stdout?: T) {
     const id = this.nextTimerId++;
-    this.timers[id] = ['interval', setInterval(callback, ms), stdout];
-    return id;
+    const res = setInterval(callback, ms);
+    this.timers[id] = ['interval', res, stdout];
+    return [id, res];
   }
 
-  setTimeout(callback: () => void, ms?: number, stdout?: T): number {
+  setTimeout(callback: () => void, ms?: number, stdout?: T) {
     const id = this.nextTimerId++;
     debug('timerId=%d, setTimeout: %O', id, callback);
-    this.timers[id] = ['timeout', setTimeout(callback, ms), stdout];
+    const res = setTimeout(callback, ms);
     setTimeout(() => delete this.timers[id], ms);
-    return id;
+    this.timers[id] = ['timeout', res, stdout];
+    return [id, res];
   }
 
   clearTimer(id: keyof typeof this.timers) {
@@ -59,8 +61,7 @@ export class ExecEnv<T extends PipeBase> {
     } else {
       clearTimeout(timer);
     }
-    if (stdout && !stdout.writeClosed)
-      stdout.closeWrite();
+    stdout?.closeWrite();
     delete this.timers[id];
   }
 

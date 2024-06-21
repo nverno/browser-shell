@@ -54,32 +54,15 @@ export class BackgroundPage {
         debug("Remote received from %s (%s): %j",
           sender.tab?.url, sender.tab?.incognito && 'incognito', request);
 
-        (async () => {
+        const handler = async () => {
           switch (request.command) {
             case 'listCommands':
-              debug('%j', request);
               return [
                 'listCommands',
-                'getHistory', 'recordCommand',
                 'insertCSS', 'removeCSS',
                 'executeScript', 'unregisterScripts',
-                'download',
+                'download', 'openTab',
               ];
-
-            // case 'getHistory':
-            //   sendResponse({ commands: this.memory.commands || [] });
-            //   break;
-
-            // case 'recordCommand':
-            //   this.updateMemory();
-            //   this.memory.commands ||= [];
-            //   this.memory.commands.unshift(request.payload);
-            //   this.memory.commands = this.memory.commands.slice(0, 51);
-            //   chrome.storage.local
-            //     .set({ commands: this.memory.commands })
-            //     .then(() => sendResponse())
-            //     .catch(errors => sendResponse({ errors }));
-            //   break;
 
             case 'insertCSS': {
               const { payload: { target, ...opts } } = request
@@ -130,9 +113,13 @@ export class BackgroundPage {
                 });
 
             default:
-              throw new Error(`unknown command: ${request.command}`);
+              return { errors: [
+                new Error(`background unknown command: ${request.command}`),
+              ]};
+              // throw new Error(`unknown command: ${request.command}`);
           }
-        })()
+        };
+        handler()
           .then(res => sendResponse(res))
           .catch(errors => sendResponse({ errors }));
 

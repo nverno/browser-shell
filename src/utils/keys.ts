@@ -6,7 +6,7 @@ export const isKey = (kbd: string, e: KeyboardEvent) => {
   return kbd.split('-').every((k) => {
     switch (k) {
       case 'C': return e.ctrlKey;
-      case 'M': return e.metaKey;
+      case 'M': return e.metaKey || e.altKey;
       default: return e.key === k;
     }
   });

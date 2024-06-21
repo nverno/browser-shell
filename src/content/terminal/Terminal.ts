@@ -1,25 +1,25 @@
 import $ from 'jquery';
-import { sitFor, Debug, escapeAndLinkify } from '~utils';
+import { sitFor, escapeAndLinkify } from '~utils';
 import { commands } from '~content';
 import { BrowserShell } from '../BrowserShell';
 import { TerminalWindow } from './TerminalWindow';
 import { Commands } from '~content/exec';
 import { PipeExec, PipeEnv } from '~content/exec/pipe';
 import History from './History';
+import { isError } from 'lodash';
 
-const debug = Debug('terminal');
+
 const MAX_OUTPUT_BUFFER: number = 1024
 
 export class Terminal {
   win: TerminalWindow;
   shell: BrowserShell;
+  history: History;
   bin: Commands<any> = commands as any;
   alias: { [key: string]: string } = {};
   $body: JQuery<HTMLBodyElement>;
   $textarea: JQuery<HTMLTextAreaElement>;
   $output: JQuery<HTMLElement>;
-  history: History;
-  // partialCmd: string | number | string[] = '';
   lastAutocompleteIndex = 0;
   lastAutocompletePrefix = '';
 
@@ -32,6 +32,7 @@ export class Terminal {
       <div class='output'></div>
       <div class='prompt-wrapper'>
         <span class='prompt'>$</span>
+        <span class='prompt-info'></span>
         <textarea spellcheck='false' autocorrect='false'></textarea>
       </div>
       <div class='history-preview'></div>
@@ -44,6 +45,14 @@ export class Terminal {
     this.history = new History(this.$body);
     this.setupCommands();
     this.handleInput();
+  }
+
+  // Add predefined aliases
+  setupCommands() {
+    Object.entries(this.bin).forEach(([cmd, opts]) => {
+      if (opts.alias)
+        opts.alias.forEach(alias => this.defineAlias(alias, cmd));
+    });
   }
 
   /** Clear shell output */
@@ -86,14 +95,6 @@ export class Terminal {
   clearInput() {
     this.history.clearPreview();
     this.setVal('');
-  }
-
-  // Add predefined aliases
-  setupCommands() {
-    Object.entries(this.bin).forEach(([cmd, opts]) => {
-      if (opts.alias)
-        opts.alias.forEach(alias => this.defineAlias(alias, cmd));
-    });
   }
 
   /** Un/define aliases */
@@ -164,6 +165,7 @@ export class Terminal {
         case "KeyK": // kill to end of line
           pos = -1;
           this.setVal(this.val().substring(0, this.$textarea[0].selectionStart));
+          this.history.clearPreview();
           break;
         default:
           return false;
@@ -255,6 +257,24 @@ export class Terminal {
     return this.$textarea.val() as string;
   }
 
+  /** Write error output in terminal */
+  error(text: Error | string | string[]) {
+    if (Array.isArray(text)) text = text.join(", ");
+    else if (isError(text)) text = 'Error: ' + text.message;
+    this.write(text, 'error');
+  }
+
+  /** Write text output with CSS class type in terminal */
+  write(text: string, type: string) {
+    text?.toString().split("\n").forEach((line) => {
+      this.$output.append(
+        $("<div class='item'></div>")
+          .html(escapeAndLinkify(line))
+          .addClass(type)
+      );
+    });
+    this.$output.scrollTop(this.$output[0].scrollHeight);
+  }
 
   /** Run current terminal command-line */
   async process() {
@@ -299,41 +319,15 @@ export class Terminal {
         this.showPrompt();
       });
 
-      while (env.interrupted <= 1) {
-        try {
-          const data = await stream.read();
-          if (!data) break;
-
-          this.write(data, 'output');
-          await sitFor(100);
-
-          outputLog.push(data);
-          if (outputLog.length > MAX_OUTPUT_BUFFER)
-            outputLog.shift();
-        } catch (error) {
-          // this.error(error);
-          break;
-        }
+      let data: any;
+      while (env.interrupted <= 1 && (data = await stream.read()) != null) {
+        this.write(data, 'output');
+        // await sitFor(100);
+        outputLog.push(data);
+        if (outputLog.length > MAX_OUTPUT_BUFFER)
+          outputLog.shift();
       }
       stream.close();
     }
-  }
-
-  /** Write error output in terminal */
-  error(text: string | string[]) {
-    if (Array.isArray(text)) text = text.join(", ");
-    this.write(text, 'error');
-  }
-
-  /** Write text output with CSS class type in terminal */
-  write(text: string, type: string) {
-    text?.toString().split("\n").forEach((line) => {
-      this.$output.append(
-        $("<div class='item'></div>")
-          .html(escapeAndLinkify(line))
-          .addClass(type)
-      );
-    });
-    this.$output.scrollTop(this.$output[0].scrollHeight);
   }
 };

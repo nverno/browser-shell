@@ -1,6 +1,5 @@
 import { PipeBase } from './Pipe';
-import { Debug } from '~utils';
-const debug = Debug('io');
+
 
 export abstract class IoBase<S extends PipeBase> {
   stream: S;
@@ -13,13 +12,16 @@ export class Reader<S extends PipeBase, T = any> extends IoBase<S> {
   constructor(stream: S) {
     stream.numReader++;
     super(stream);
-    debug(`new ${stream.name}::Reader(${stream.numReader},${stream.numWriter})`);
+    stream.log(`OPEN read (r=${stream.numReader},w=${stream.numWriter})`);
   }
-  read(): Promise<T | void> | void {
+  async read(): Promise<T | void> {
     return this.stream.read();
   }
-  async readAll(): Promise<T[] | void> {
+  async readAll(): Promise<T[]> {
     return this.stream.readAll();
+  }
+  isClosed() {
+    return this.stream.readClosed;
   }
   close() {
     return this.stream.closeRead();
@@ -33,10 +35,13 @@ export class Writer<S extends PipeBase, T = any> extends IoBase<S> {
   constructor(stream: S) {
     stream.numWriter++;
     super(stream);
-    debug(`new ${stream.name}::Writer(${stream.numReader},${stream.numWriter})`);
+    stream.log(`OPEN write (r=${stream.numReader},w=${stream.numWriter})`);
   }
   write(data: T) {
     this.stream.write(data);
+  }
+  isClosed() {
+    return this.stream.writeClosed || this.stream.readClosed;
   }
   close() {
     return this.stream.closeWrite();

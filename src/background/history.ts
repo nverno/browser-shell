@@ -20,13 +20,19 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+async function pruneHistory(time?: string) {
+  if (!time) {
+    await chrome.storage.local.set({ commandHistory: [] });
+    debug('cleared history');
+  }
+  // TODO(6/15/24): prune history
+}
+
 async function historyPush(command: CommandHistory) {
   command.timestamp ||= new Date().toISOString();
-  debug('push: %O', command);
   const { commandHistory } = await chrome.storage.local.get({
     commandHistory: []
   });
-  // TODO(6/15/24): prune history
   commandHistory.push(command);
   await chrome.storage.local.set({ commandHistory });
 }
@@ -35,7 +41,6 @@ async function getHistory(): Promise<CommandHistory[]> {
   const { commandHistory = [] } = await chrome.storage.local.get({
     commandHistory: [],
   });
-  debug('getHistory: %O', commandHistory);
   return commandHistory;
 }
 
@@ -48,9 +53,9 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 
 chrome.storage.onChanged.addListener((changes, namespace) => {
-  for (const [key, { oldValue, newValue }] of Object.entries(changes)) {
+  for (const [key, { oldValue: _o, newValue: _n }] of Object.entries(changes)) {
     debug("Storage key='%s' in namespace='%s' changed", key, namespace);
-    debug("Old value='%o', new value='%o'", oldValue, newValue);
+    // debug("Old value='%o', new value='%o'", oldValue, newValue);
   }
 });
 
@@ -58,11 +63,10 @@ chrome.runtime.onMessage.addListener(
   (request: HistoryRequest, sender, sendResponse: any) => {
     if (request.target !== 'history')
       return;
-
     debug("received from %s (%s): %j",
       sender.tab?.url, sender.tab?.incognito && 'incognito', request);
 
-    (async () => {
+    const handler = async () => {
       switch (request.command) {
         case 'getHistory':
           const history = await getHistory();
@@ -73,10 +77,16 @@ chrome.runtime.onMessage.addListener(
           historyPush(command);
           return;
 
+        case 'clearHistory':
+          return pruneHistory();
+
         default:
-          throw new Error(`unknown command: ${request.command}`);
+          return { errors: [
+            new Error(`history unknown command: ${request.command}`),
+          ]};
       }
-    })()
+    };
+    handler()
       .then(res => sendResponse(res))
       .catch(errors => sendResponse({ errors }));
 

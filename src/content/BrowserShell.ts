@@ -59,12 +59,17 @@ export class BrowserShell {
         } else {
           this.showTerminal();
         }
-      } else if (isKey(config.commands.toggleFullscreen, e) && this.terminalShown()) {
-        e.preventDefault();
-        this.terminal.toggleFullscreen()!;
-      } else if (isKey(config.commands.clearShell, e) && this.terminalShown()) {
-        e.preventDefault();
-        this.terminal.clear()!;
+      } else if (this.terminalShown()) {
+        if (isKey(config.commands.toggleFullscreen, e)) {
+          e.preventDefault();
+          this.terminal.toggleFullscreen()!;
+        } else if (isKey(config.commands.clearShell, e)) {
+          e.preventDefault();
+          this.terminal.clear()!;
+        } else if (isKey(config.commands.toggleHistoryFiltering, e)) {
+          e.preventDefault();
+          this.terminal.history.toggleFiltering();
+        }
       }
     });
   }

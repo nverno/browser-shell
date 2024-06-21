@@ -1,7 +1,7 @@
 import { PipeBase } from './Pipe';
 import { sendSigPipe } from './SigPipe';
 import { Debug } from '~utils';
-const debug = Debug('stream');
+const debug = Debug('io:stream');
 
 export class Stream<T = any> extends PipeBase<T> {
   readCallback?: (data: T, readyForMore: () => void) => void;
@@ -37,7 +37,7 @@ export class Stream<T = any> extends PipeBase<T> {
     }
   }
 
-  read(callback: (data: T, readyForMore: () => void) => void) {
+  async read(callback: (data: T, readyForMore: () => void) => void) {
     this.numReader++;
     if (this.readCallback) {
       throw new Error(`read callback already defined '${this.name}'`);
@@ -46,7 +46,7 @@ export class Stream<T = any> extends PipeBase<T> {
     this.onReadCallback?.();
   }
 
-  async readAll(callback: (fullData: T[]) => void): Promise<T[]|void> {
+  async readAll(callback: (fullData: T[]) => void): Promise<T[]> {
     return new Promise((resolve, reject) => {
       const fullData: T[] = [];
       this.read((data: T, readyForMore: () => void) => {
@@ -54,7 +54,6 @@ export class Stream<T = any> extends PipeBase<T> {
         readyForMore();
       });
       return resolve(fullData);
-      // this.onCloseWrite(() => callback(fullData));
     });
   }
 }

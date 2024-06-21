@@ -3,7 +3,7 @@ import { Debug, sendMessage, evaluateXpath } from '~utils';
 import { Commands } from './types';
 import { StreamEnv } from "~content/exec/stream";
 import { Stream } from "~content/io";
-const debug = Debug('dom');
+const debug = Debug('cmd:dom');
 
 export const domCommands: Commands<Stream, StreamEnv> = {
   selection: {
@@ -171,7 +171,7 @@ export const domCommands: Commands<Stream, StreamEnv> = {
           env.interrupted > 0 || $("#selectorgadget_path_field").length > 0,
           () => {
             let lastVal: string;
-            const timerId = env.setInterval(() => {
+            const [timerId, _] = env.setInterval(() => {
               const val = $("#selectorgadget_path_field").val() as string;
               if (val !== "No valid path found.") {
                 lastVal = val;
@@ -180,7 +180,7 @@ export const domCommands: Commands<Stream, StreamEnv> = {
             env.whenTrue(() =>
               env.interrupted > 0 || $("#selectorgadget_path_field").length === 0,
               () => {
-                env.clearTimer(timerId);
+                env.clearTimer(timerId as any);
                 env.terminal.show();
                 stdout.write(lastVal || 'unknown');
                 stdout.closeWrite();

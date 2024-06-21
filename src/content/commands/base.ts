@@ -1,10 +1,9 @@
-import { isString, Debug, sendMessage, pick, flatten } from '~utils';
+import { Debug, isEmpty, sendMessage, pick, debugEnable } from '~utils';
 import { Command } from '~content/exec';
 import { Pipe } from '~content/io';
-import { PipeEnv } from '~content/exec/pipe';
+import { ArgsOrStdin, PipeEnv } from '~content/exec/pipe';
 
-const debug = Debug('base');
-
+const debug = Debug('cmd:base');
 
 export const baseCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   help: {
@@ -12,12 +11,14 @@ export const baseCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
     help: ["help [commands] - show help for COMMANDS"],
     alias: ["h"],
     run: async (env, stdin, stdout, args) => {
-      args = flatten((stdin ? await stdin.readAll() as any[] : [args])
-        ?.map((el) => el?.split(' ')))
-        ?.filter(el => el?.length > 0);
-      const details = args?.length > 0;
+      args = await env.argsOrStdin(stdin, args, {
+        name: 'help',
+        readAll: true,
+        flatten: true,
+        splitStdin: ' ',
+      });
+      const details = args.length > 0;
       const cmds = details ? pick(env.bin, args) : env.bin;
-
       let aliases = [];
       Object.entries(cmds)
         .filter(([_, opts]: any) => opts.desc)
@@ -48,24 +49,29 @@ export const baseCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
 
   clear: {
     desc: "Clear the terminal",
-    run: async (env, stdin, stdout) => {
+    help: ["clear history - clear history"],
+    run: async (env, stdin, stdout, args) => {
       if (stdin) await stdin.readAll();
+      if (args === 'history')
+        env.terminal.history.clear();
+      else
+        env.terminal.clear();
       stdout.close();
-      env.terminal.clear();
     },
   },
 
   history: {
     desc: 'Show command history',
     help: ['history [index] - print output of command history[INDEX]'],
+    alias: ['hist'],
     run: async (env, stdin, stdout, args) => {
       if (stdin) await stdin.readAll();
       if (args) {
         const idx = parseInt(args);
-        stdout.write(env.terminal.history.history[idx]?.output);
+        stdout.write(env.terminal.history.get(idx)?.output);
       } else {
-        env.terminal.history.history.forEach((hist, idx) =>
-          stdout.write(`[${idx}] ${hist.command}`));
+        for (const { history, index } of env.terminal.history)
+          stdout.write(`[${index}] ${history.command}`);
       }
       stdout.close();
     }
@@ -81,7 +87,7 @@ export const baseCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
       args = (stdin ? await stdin.readAll() as any[] : [args])
         ?.map((arg) => arg?.split(' ').filter((el) => el.length > 0))
         ?.filter((el) => el?.length > 0);
-      debug('args: %o', args);
+
       if (!args || args.length === 0) {
         Object.entries(env.terminal.alias).forEach(([alias, cmd]) => {
           stdout.write(`alias ${alias}=${cmd}`);
@@ -96,184 +102,216 @@ export const baseCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   echo: {
     desc: "Echo input to output",
     run: async (env, stdin, stdout, args) => {
-      if (stdin) {
-        while (!env.interrupted) {
-          try {
-            stdout.write(await stdin.read());
-          } catch (error) {
-            break;
-          }
-        }
-        if (env.interrupted) debug('echo interrupted..');
-      } else if (args) {
-        [args].forEach((arg: any) => stdout.write(arg));
+      const input = new ArgsOrStdin(env, stdin, args);
+      let data: any;
+      while (!env.interrupted && (data = await input.read()) != null) {
+        debug('data: %o', data);
+        stdout.write(data);
       }
       stdout.close();
     }
   },
 
-  // _: {
-  //   desc: "Access the previous command's output",
-  //   run: async (env, stdin, stdout, args) => {
-  //     stdout.onRead(() => {
-  //       env.argsOrStdin([args], stdin, (back) => {
-  //         (env.terminal.history[env.terminal.historyIndex -
-  //           parseInt(back[0])]?.output || [])
-  //           .forEach((line) => {
-  //             stdout.write(line);
-  //           });
-  //         stdout.closeWrite();
-  //       });
-  //     });
-  //   },
-  // },
+  _: {
+    desc: "Access the previous command's output",
+    run: async (env, stdin, stdout, args) => {
+      if (stdin) await stdin.readAll();
+      const idx = args ? parseInt(args) : 1;
+      env.terminal.history.get(-idx)?.output.forEach((line) => {
+        stdout.write(line);
+      });
+      stdout.close();
+    }
+  },
 
-  // grep: {
-  //   desc: "Search for lines matching a pattern",
-  //   run: (env, stdin, stdout, args) => {
-  //     if (!stdin)
-  //       return env.fail(stdout, "stdin required for grep");
+  grep: {
+    desc: "Search for lines matching a pattern",
+    run: async (env, stdin, stdout, args) => {
+      if (!stdin) return env.fail("stdin required for grep", stdout);
+      const pattern = new RegExp(args, 'i');
+      while (!env.interrupted) {
+        try {
+          const text = await stdin.read();
+          const matches = String(text).split("\n")
+            .filter((line) => line.match(pattern));
+          matches.forEach((line) => stdout.write(line));
+        } catch (error) {
+          break;
+        }
+      }
+      stdout.close();
+    },
+  },
 
-  //     const pattern = new RegExp(args, 'i');
-  //     stdout.onRead(() => {
-  //       stdin.onCloseWrite(() => stdout.closeWrite());
+  collect: {
+    desc: "Collect input into an array (blocks)",
+    run: async (env, stdin, stdout, args) => {
+      if (!stdin) {
+        stdout.write(args ? [args] : []);
+      } else {
+        const res = stdin.readAll();
+        stdout.write(res);
+      }
+      stdout.close();
+    },
+  },
 
-  //       stdin.read((text, readyForMore) => {
-  //         const matches = (String(text).split("\n").filter((line) => line.match(pattern)));
-  //         if (matches.length > 0) {
-  //           matches.forEach((line, index) => {
-  //             if (index === matches.length - 1) {
-  //               stdout.write(line, readyForMore);
-  //             } else {
-  //               stdout.write(line);
-  //             }
-  //           });
-  //         } else {
-  //           readyForMore();
-  //         }
-  //       });
-  //     });
-  //   },
-  // },
+  tick: {
+    desc: "Read once every second",
+    help: ["tick [ms] - read once every MS millisecs"],
+    run: async (env, stdin, stdout, args) => {
+      // return env.fail("stdin required for tick", stdout);
+      if (stdin) {
+        const ms = parseInt(args) || 1000;
+        let data: any;
+        while (!env.interrupted && (data = await stdin.read()) != null) {
+          await new Promise((resolve) =>
+            env.setTimeout(() => {
+              stdout.write(data);
+              resolve(null);
+            }, ms, stdout.stream));
+        }
+      }
+      stdout.close();
+    },
+  },
 
-  // collect: {
-  //   desc: "Grab all input into an array",
-  //   run: (env, stdin, stdout, args) => {
-  //     stdout.onRead(() => {
-  //       env.argsOrStdin([args], stdin, (rows) => {
-  //         stdout.write(rows);
-  //         stdout.closeWrite();
-  //       });
-  //     });
-  //   },
-  // },
+  debug: {
+    desc: "Debug settings (blocks)",
+    help: [
+      'debug enabled [prefix:"bs:*"] - test is logging is enabled for PREFIX',
+      'debug enable [prefix:"bs:*"] - enable logging for modules with PREFIX',
+      'debug disable - disable debug logging'
+    ],
+    run: async (env, stdin, stdout, args) => {
+      try {
+        args = await env.argsOrStdin(stdin, args, {
+          name: 'debug',
+          requiredArgs: 1,
+          readAll: true,
+        });
+        let check = false;
+        switch (args[0]) {
+          case 'disable':
+            stdout.write(`diabled: ${debugEnable()}`);
+            break;
 
-  // tick: {
-  //   desc: "Read once per second",
-  //   run: (env, stdin, stdout, args) => {
-  //     if (!stdin)
-  //       return env.fail(stdout, "stdin required for tick");
+          case 'enabled':                           // fall-through
+            check = true;
+          case 'enable':
+            let prefix = !args[1]
+              ? 'bs:*' : (args[1].indexOf(':') === -1 ? 'bs:' : '') + args[1];
+            const res = debugEnable(prefix, check);
+            stdout.write(`debug '${prefix}' ` +
+              ((!check || res) ? "enabled" : "NOT enabled"));
+            break;
 
-  //     const ms = parseInt(args) || 500;
-  //     stdout.onRead(() => {
-  //       stdin.onCloseWrite(() => stdout.closeWrite());
-  //       stdin.read((line, readyForMore) => {
-  //         stdout.write(line);
-  //         env.setTimeout(() => {
-  //           if (env.interrupted) {
-  //             debug('tick sees interrupted');
-  //             stdout.closeWrite();
-  //           } else {
-  //             readyForMore();
-  //           }
-  //         }, ms, stdout);
-  //       });
-  //     });
-  //   },
-  // },
+          default:
+            return env.fail(`unknown debug args: ${args.join(" ")}`, stdout);
+        }
+      } catch (error) {
+        return env.fail(error, stdout);
+      }
+      stdout.close();
+    },
+  },
 
-  // yes: {
-  //   desc: "Emit the given text continuously",
-  //   run: (env, stdin, stdout, args) => {
-  //     const ms = parseInt(args) || 50;
-  //     stdout.onRead(() => {
-  //       env.argsOrStdin([args], stdin, (text) => {
-  //         const emit = () => {
-  //           env.setTimeout(() => {
-  //             if (env.interrupted) {
-  //               stdout.closeWrite();
-  //             } else {
-  //               stdout.write(text[0], emit);
-  //             }
-  //           }, ms, stdout);
-  //         };
-  //         emit();
-  //       });
-  //     });
-  //   },
-  // },
+  yes: {
+    desc: "Emit newline every 200ms",
+    help: [
+      "yes [ms:200] - emit every MS millisecs",
+      "yes [ms:200] [text:\"\\n\"] - emit TEXT every MS millisecs"
+    ],
+    run: async (env, stdin, stdout, args) => {
+      args = args?.split(' ') ?? [200, "\n"];
+      const ms = parseInt(args[0]) || 200;
+      const text = args[1] || "\n";
 
-  // pbcopy: {
-  //   desc: "Put data into the clipboard",
-  //   run: (env, stdin, stdout, args) => {
-  //     stdout.onRead(() => {
-  //       env.argsOrStdin([args], stdin, (lines) => {
-  //         navigator.clipboard.writeText(lines.join("\n"))
-  //           .then(() => {
-  //             debug("copied");
-  //             stdout.closeWrite();
-  //           });
-  //       });
-  //     });
-  //   },
-  // },
+      const emit = async (data: any) => {
+        return new Promise((resolve, reject) => {
+          env.setTimeout(() => {
+            if (env.interrupted)
+              reject('yes interrupted');
+            else {
+              stdout.write(data);
+              resolve(null);
+            }
+          }, ms, stdout.stream);
+        });
+      };
 
-  // pbpaste: {
-  //   desc: "Pull data from the clipboard",
-  //   run: (_env, _stdin, stdout, _args) => {
-  //     stdout.onRead(() => {
-  //       navigator.clipboard.readText()
-  //         .then(clipText => {
-  //           clipText.split("\n").forEach(line => stdout.write(line));
-  //           stdout.closeWrite();
-  //         });
-  //     });
-  //   },
-  // },
+      while (!env.interrupted) {
+        try {
+          const data = stdin ? await stdin.read() : text;
+          await emit(data);
+        } catch (error) {
+          env.terminal.error(error);
+          console.error(error);
+          break;
+        }
+      }
+      stdout.close();
+    },
+  },
 
-  // bgPage: {
-  //   desc: "Manually execute a background page command",
-  //   run: (env, stdin, stdout, args) => {
-  //     args = args || 'listCommands'
-  //     stdout.onRead(() => {
-  //       env.argsOrStdin([args], stdin, async (cmdLine) => {
-  //         const [cmd, ...rest] = cmdLine[0].split(" ");
-  //         if (!cmd || cmd.length === 0) {
-  //           return env.fail(stdout, "missing command");
-  //         }
-  //         const payload: { [key: string]: string } = {};
-  //         rest.forEach((segment: string) => {
-  //           const [k, v] = [
-  //             segment.slice(0, segment.indexOf(':')),
-  //             segment.slice(segment.indexOf(':') + 1)
-  //           ];
-  //           payload[k] = v;
-  //         });
-  //         const res = await sendMessage({
-  //           target: cmd === 'callServer' ? 'server' : 'background',
-  //           command: cmd,
-  //           payload,
-  //         });
-  //         if (res?.errors) {
-  //           env.fail(stdout, res.errors);
-  //         } else {
-  //           stdout.write(JSON.stringify(res));
-  //           stdout.closeWrite();
-  //         }
-  //       });
-  //     });
-  //   },
-  // },
+  pbcopy: {
+    desc: "Copy to clipboard",
+    run: async (env, stdin, stdout, args) => {
+      const data = await env.argsOrStdin(stdin, args, {
+        name: 'pbcopy',
+        readAll: true,
+      });
+      try {
+        await navigator.clipboard.writeText(data.join("\n"));
+        // FIXME(6/22/24): write to stderr
+        env.terminal.error('copied to clipboard');
+      } catch (error) {
+        env.fail(error);
+      }
+      stdout.close();
+    },
+  },
+
+  pbpaste: {
+    desc: "Pull data from the clipboard",
+    run: async (_env, _stdin, stdout, _args) => {
+      const text = await navigator.clipboard.readText();
+      text.split("\n").forEach(line => stdout.write(line));
+      stdout.close();
+    },
+  },
+
+  bg: {
+    desc: "Send command to background",
+    help: [
+      "bg [target]:[command] [args...] - send COMMAND to TARGET",
+      "   ARGS can be key-value pairs with syntax <key>:<value>",
+    ],
+    run: async (env, stdin, stdout, args) => {
+      let [cmd, ...rest] = args ? args.split(/\s+/) : ['background:listCommands'];
+      const [target, command] = cmd.split(/\s*:\s*/);
+      debug("cmd: %o, target: %o, command: %o, rest: %o", cmd, rest, target, command)
+      
+      if (!(target && command))
+        return env.fail('missing target:command', stdout);
+
+      const data = await env.argsOrStdin(stdin, rest, { readAll: true });
+      const payload = {};
+      data.forEach((kv: string) => {
+        const [k, v] = kv.split(':');
+        payload[k] = v;
+      });
+
+      const res = await sendMessage({ target, command, payload });
+      debug('result: %O', res);
+      if (!isEmpty(res?.errors)) {
+        env.terminal.error(res.errors);
+      } else {
+        stdout.write(JSON.stringify(res));
+      }
+      stdout.close();
+    },
+  },
 
   // eval: {
   //   desc: "Eval javascript code",

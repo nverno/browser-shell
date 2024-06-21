@@ -18,7 +18,7 @@ install: vendor-libs | node_modules
 build: vendor-libs $(TARGET)
 
 node_modules:
-	@npm install
+	@npm install --legacy-peer-deps
 
 $(TARGET): $(SRC) package.json | node_modules
 	@npm run build
