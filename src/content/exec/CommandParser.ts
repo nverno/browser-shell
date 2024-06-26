@@ -43,7 +43,7 @@ export class CommandParser<E extends ExecEnv<PipeBase>> {
             line.slice(firstSpace + 1)
           ]);
         } else {
-          this.parsedCommands.push([line, ""]);
+          this.parsedCommands.push([line, null]);
         }
       }
     }

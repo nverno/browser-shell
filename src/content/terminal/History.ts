@@ -3,7 +3,7 @@ import { Debug, IMessage, escapeAndLinkify, isNil, sendMessage, truncate } from 
 const debug = Debug('term:history');
 
 const DONT_RECORD = [
-  "exit", "help", "clear", "_", 'alias', 'history', 'h', 'hist',
+  "_",
 ].reduce((acc, s) => ({ [s]: true, ...acc }), {});
 
 

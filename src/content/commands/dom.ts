@@ -6,7 +6,6 @@ import { Pipe } from "~content/io";
 
 const debug = Debug('cmd:dom');
 
-
 export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   selection: {
     desc: "Get the current document selection",
@@ -16,54 +15,6 @@ export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
       });
       stdout.close();
     },
-  },
-
-  text: {
-    desc: "Access the page's text",
-    help: ["text [SELECTOR...] - try to get text for SELECTORS"],
-    run: async (env, stdin, stdout, args) => {
-      const input = new ArgsOrStdin(env, stdin, args || 'body');
-      let selector: any;
-      while (!env.interrupted && (selector = await input.read()) != null) {
-        try {
-          $(selector).each((_, elem) => {
-            stdout.write($(elem).text());
-          });
-        } catch (error) {
-          env.terminal.error(error);
-        }
-      }
-      stdout.close();
-    },
-  },
-
-  '.': {
-    desc: "Extract element attributes (ex. jquery a | . href)",
-    help: ['. [attrs...] - extract ATTRS attributes from inputs'],
-    run: async (env, stdin, stdout, args) => {
-      if (!stdin) {
-        stdout.close();
-        return;
-      }
-      args = args?.split(' ') || [];
-      if (args.length === 0)
-        env.fail('missing attrs');
-
-      let elem: any;
-      while (!env.interrupted && (elem = await stdin.read()) != null) {
-        const res = [];
-        args.forEach((attr: string) => {
-          try {
-            res.push($(elem).attr(attr));
-          } catch (error) {
-            env.terminal.error(error);
-          }
-        });
-        if (res.length > 0)
-          stdout.write(res);
-      };
-      stdout.close();
-    }
   },
 
   xpath: {
@@ -80,22 +31,6 @@ export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
       }
       stdout.close();
     },
-  },
-
-  jquery: {
-    desc: "Access the page's dom",
-    run: async (env, stdin, stdout, args) => {
-      const input = new ArgsOrStdin(env, stdin, args?.length > 0 ? args : 'body');
-      let selector: any;
-      while ((selector = await input.read()) != null) {
-        try {
-          $(selector).each((_, elem) => stdout.write(elem));
-        } catch (error) {
-          env.terminal.error(error);
-        }
-      }
-      stdout.close();
-    }
   },
 
   expandpath: {
@@ -164,6 +99,7 @@ export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
         });
       };
 
+      // FIXME: remove jquery
       await waitUntil(() => $("#selectorgadget_path_field").length > 0);
       let lastVal: string;
       const [timerId, _] = env.setInterval(() => {

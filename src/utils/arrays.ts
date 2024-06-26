@@ -28,13 +28,13 @@ export const flatten = (arr, depth = 1) =>
 // };
 
 export function lowerBound<T = any>(arr: T[], cmp: (((x: T) => boolean) | T)) {
-  let comparator = (
+  const comparator = (
     typeof cmp === 'function' ? cmp
       : ((x: T) => x >= (cmp as T)) as (x: T) => boolean
   ) as (x: T) => boolean;
   let l = 0, r = arr.length;
   while (l < r) {
-    let mid = (l + r) >>> 1;
+    const mid = (l + r) >>> 1;
     if (comparator(arr[mid])) r = mid;
     else l = mid + 1;
   }

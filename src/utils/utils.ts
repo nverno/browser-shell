@@ -49,13 +49,17 @@ type IObject = { [key: string]: any };
 export const mergeCombineFn = (
   key: string, a: IObject, b: IObject, max_depth: number
 ) => {
-  if (Array.isArray(a) && Array.isArray(b)) return a.concat(b);
-  if (typeof a === 'object' && typeof b === 'object') {
-    return max_depth <= 0
-      ? Object.assign({}, b, a)
-      : deepMerge(a, b, mergeCombineFn, max_depth);
+  if (a && b) {
+    if (Array.isArray(a) && Array.isArray(b))
+      return a.concat(b);
+    if (typeof a === 'object' && typeof b === 'object') {
+      return max_depth <= 0
+        ? Object.assign({}, b, a)
+        : deepMerge(a, b, mergeCombineFn, max_depth);
+    }
+    if (typeof a === 'string' && typeof b === 'string')
+      return a;
   }
-  if (typeof a === 'string' && typeof b === 'string') return a;
   return a ?? b;
 };
 
