@@ -1,15 +1,29 @@
 import $ from 'jquery';
-import { sitFor, escapeAndLinkify } from '~utils';
-import { commands } from '~content';
-import { BrowserShell } from '../BrowserShell';
-import { TerminalWindow } from './TerminalWindow';
-import { Commands } from '~content/exec';
-import { PipeExec, PipeEnv } from '~content/exec/pipe';
-import History from './History';
 import { isError } from 'lodash';
+import { deepMerge, escapeAndLinkify } from '~utils';
+import { commands, BrowserShell } from '~content';
+import { Commands, PipeExec, PipeEnv } from '~content/exec';
+import { TerminalWindow } from './TerminalWindow';
+import History from './History';
 
 
 const MAX_OUTPUT_BUFFER: number = 1024
+
+export const terminalOutputTypes = [
+  'text', 'html', 'json', 'object', 'string', 'jquery',
+] as const;
+export type TerminalOutputType = typeof terminalOutputTypes[number];
+
+export type ITerminalOutputOpts = {
+  escapeHtml: boolean;
+  type: TerminalOutputType;
+  class: string;
+};
+export const terminalOutputDefaultOpts: Partial<ITerminalOutputOpts> = {
+  escapeHtml: true,
+  type: 'text',
+  class: 'output',
+};
 
 export class Terminal {
   win: TerminalWindow;
@@ -264,15 +278,28 @@ export class Terminal {
     this.write(text, 'error');
   }
 
-  /** Write text output with CSS class type in terminal */
-  write(text: string, type: string) {
-    text?.toString().split("\n").forEach((line) => {
-      this.$output.append(
-        $("<div class='item'></div>")
-          .html(escapeAndLinkify(line))
-          .addClass(type)
-      );
-    });
+  /** Write OUTPUT in terminal. */
+  write(output: any, cls?: string, opts = terminalOutputDefaultOpts) {
+    cls ||= opts.class;
+    switch(cls) {
+      case 'html':
+        this.$output
+          .append((output as JQuery<HTMLElement>).html())
+          .addClass(opts.class);
+        break;
+      case 'json':
+      case 'object':
+      case 'string':
+      case 'text':
+      default:
+        output?.toString().split("\n").forEach((line) => {
+          this.$output.append(
+            $("<div class='item'></div>")
+              .html(opts.escapeHtml ? escapeAndLinkify(line) : line)
+              .addClass(cls)
+          );
+        });
+    }
     this.$output.scrollTop(this.$output[0].scrollHeight);
   }
 
@@ -321,8 +348,7 @@ export class Terminal {
 
       let data: any;
       while (env.interrupted <= 1 && (data = await stream.read()) != null) {
-        this.write(data, 'output');
-        // await sitFor(100);
+        this.write(data, env.outputOpts.class || 'output', env.outputOpts);
         outputLog.push(data);
         if (outputLog.length > MAX_OUTPUT_BUFFER)
           outputLog.shift();

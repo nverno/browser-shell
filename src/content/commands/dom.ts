@@ -1,14 +1,20 @@
-import $ from "jquery";
-import { Debug, sendMessage, evaluateXpath } from '~utils';
-import { Command } from '~content/exec';
-import { ArgsOrStdin, PipeEnv } from "~content/exec/pipe";
+import { Debug, sendMessage, evaluateXpath, domain, pollUntil } from '~utils';
+import { ArgsOrStdin, PipeEnv, Command } from '~content/exec';
 import { Pipe } from "~content/io";
 
 const debug = Debug('cmd:dom');
 
 export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
+  domain: {
+    desc: "Get Current domain",
+    run: async (_env, _stdin, stdout, _args) => {
+      stdout.write(domain());
+      stdout.close();
+    }
+  },
+
   selection: {
-    desc: "Get the current document selection",
+    desc: "Get the current document selection (ignores stdin)",
     run: async (_env, _stdin, stdout) => {
       document.getSelection()?.toString().split("\n").forEach((line) => {
         stdout.write(line);
@@ -18,7 +24,8 @@ export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   xpath: {
-    desc: 'Return nodes matching xpath query',
+    desc: 'Run Xpath query',
+    help: ["xpath [path='//body'] - get nodes matching PATH"],
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args || '//body');
       let query: any;
@@ -33,40 +40,11 @@ export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
     },
   },
 
-  expandpath: {
-    desc: "Expand relative urls",
-    run: async (env, stdin, stdout, args) => {
-      const input = new ArgsOrStdin(env, stdin, args);
-      let url: string;
-      while ((url = await input.read()) != null) {
-        stdout.write(url.startsWith("//")
-          ? "https:" + url
-          : url.startsWith("/") ? `${location.origin}${url}` : url
-        );
-      }
-      stdout.close();
-    },
-  },
-
-  download: {
-    desc: "Download urls",
-    run: async (env, stdin, stdout, args) => {
-      const input = new ArgsOrStdin(env, stdin, args);
-      let url: any;
-      while ((url = await input.read()) != null) {
-        const id = await sendMessage({
-          command: 'download',
-          payload: { url },
-        });
-        stdout.write(id);
-      }
-      stdout.close();
-    }
-  },
-
   selectorgadget: {
     desc: "Launch selectorGadget",
     run: async (env, stdin, stdout, args) => {
+      await (new ArgsOrStdin(env, stdin, args)).readAll();
+
       let SelectorGadget = (window as any)?.SelectorGadget;
       if (typeof SelectorGadget == "undefined") {
         await sendMessage({
@@ -90,29 +68,28 @@ export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
       env.terminal.hide()
       SelectorGadget.toggle({ analytics: false });
 
-      const waitUntil = async (check: () => boolean, ms = 100): Promise<boolean> => {
-        return new Promise(resolve => {
-          setTimeout(() => {
-            const res = env.interrupted > 0 || check();
-            resolve(res);
-          }, ms);
-        });
-      };
+      const getPath = () =>
+        document.getElementById("selectorgadget_path_field") as HTMLInputElement;
 
-      // FIXME: remove jquery
-      await waitUntil(() => $("#selectorgadget_path_field").length > 0);
-      let lastVal: string;
-      const [timerId, _] = env.setInterval(() => {
-        const val = $("#selectorgadget_path_field").val() as string;
-        if (val !== "No valid path found.") {
-          lastVal = val;
+      await pollUntil(async () => env.interrupted > 0 || !!getPath());
+
+      let path = '';
+      const [tid, _] = env.setInterval(() => {
+        const val = getPath()?.value;
+        if (val && val !== "No valid path found.") {
+          path = val;
         }
-      });
+      }, 50);
 
-      await waitUntil(() => $("#selectorgadget_path_field").length === 0);
-      env.clearTimer(timerId as any);
+      await pollUntil(async () => env.interrupted > 0 || !getPath());
+      env.clearTimer(tid as number);
       env.terminal.show();
-      stdout.write(lastVal || 'unknown');
+
+      if (path) {
+        stdout.write(path);
+      } else {
+        env.terminal.error('selectorgadget results unknown');
+      }
       stdout.close();
     }
   }

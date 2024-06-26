@@ -1,5 +1,3 @@
-import { log } from '~utils';
-
 export const location = (): string => {
   return window.location?.href;
 };
@@ -23,15 +21,4 @@ export const redirectTo = (url: string) => {
 
 export const domain = () => {
   return window.location.origin.replace(/^https?:\/\//i, '');
-};
-
-export const afterRender = (callback: () => void): void => {
-  const c = () => {
-    try {
-      callback.call(this);
-    } catch (e) {
-      log("Exception in afterRender", e, e?.stack);
-    }
-  };
-  window.setTimeout(c, 1);
 };

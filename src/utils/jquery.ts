@@ -1,5 +1,9 @@
 import $ from 'jquery';
 
+export const title = (): string => {
+  return $("title").text().trim();
+};
+
 export const blinkElements = (
   elems: JQuery<HTMLElement>,
   css: { [key: string]: any },

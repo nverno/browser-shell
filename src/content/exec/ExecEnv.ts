@@ -1,15 +1,15 @@
-import { Terminal } from "~content/terminal";
+import { ITerminalOutputOpts, Terminal, terminalOutputDefaultOpts, TerminalOutputType } from "~content/terminal";
 import { Commands } from '~content/exec';
 import { Debug } from '~utils';
 import { PipeBase } from '~content/io';
 
 const debug = Debug('exec');
 
+
 export type ExecEnvOptions<T extends PipeBase> = Partial<
   Pick<ExecEnv<T>, 'bin' | 'onCommandFinish' | 'helpers'>> & {
     extendBin?: boolean
   };
-
 export type ExecEnvHelper = (...args: any[]) => void;
 
 /** Execution environment for shell commands */
@@ -17,6 +17,7 @@ export class ExecEnv<T extends PipeBase> {
   terminal: Terminal;
   bin: Commands<T>;
   pipes: T[] = [];
+  outputOpts: Partial<ITerminalOutputOpts> = terminalOutputDefaultOpts;
   onCommandFinish: ((res: any) => void)[];
   helpers: { [key: string]: ExecEnvHelper };
   timers: {
@@ -35,9 +36,7 @@ export class ExecEnv<T extends PipeBase> {
     ) : this.terminal.bin;
   }
 
-  /** setInterval wrapper that registers interval
-   * @returns timeout Id
-   */
+  /** setInterval wrapper that registers interval */
   setInterval(callback: () => void, ms?: number, stdout?: T) {
     const id = this.nextTimerId++;
     const res = setInterval(callback, ms);

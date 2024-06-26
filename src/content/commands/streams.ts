@@ -1,12 +1,11 @@
-import { Command } from '~content/exec';
+import { ArgsOrStdin, PipeEnv, Command } from '~content/exec';
 import { Pipe } from '~content/io';
-import { ArgsOrStdin, PipeEnv } from '~content/exec/pipe';
-import { Debug, sitFor } from '~utils';
+import { Debug, isString, sitFor } from '~utils';
 
 const debug = Debug('cmd:stream');
 
 export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
-  length: {
+  len: {
     desc: 'Compute length of input (blocks)',
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args);
@@ -15,7 +14,43 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
       stdout.close();
     }
   },
-  
+
+  pause: {
+    desc: 'Pause stream',
+  },
+
+  wc: {
+    desc: "Count newline, word, or bytes",
+    help: [
+      "wc [-lwcb] - count by lines, words, chars or bytes",
+      "  Flags: l=>lines(default), w=>words, c=>chars, b=>bytes"
+    ],
+    run: async (env, stdin, stdout, args) => {
+      const input = new ArgsOrStdin(env, stdin, args, {
+        name: 'wc',
+        flags: 'lwcb',
+      });
+      await input.readFlags();
+
+      const sep = input.flag('l') ? /\n/          // lines
+        : (input.flag('w') ? /\s+/                // words
+          : (input.flag('c') ? /\s*/              // chars
+            : (input.flag('b') ? null : /\n/)));  // TODO: bytes
+      if (!sep)
+        return env.fail(`unimplemented: -b`, stdout)
+
+      let cur: any;
+      while ((cur = await input.read()) != null) {
+        if (isString(cur) && sep) {
+          stdout.write(cur.split(sep).length);
+        } else {
+          env.terminal.error(`skipped ${cur}`);
+        }
+      }
+      stdout.close();
+    },
+  },
+
   join: {
     desc: "Join input (blocks)",
     run: async (env, stdin, stdout, args) => {
@@ -82,7 +117,7 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, null);
       let cnt = parseInt(args) || 5, cur: any;
-      while (cnt-- > 0 && (cur = await input.read()) != null) 
+      while (cnt-- > 0 && (cur = await input.read()) != null)
         stdout.write(cur);
       stdout.close();
     },
@@ -148,7 +183,6 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
       stdout.close();
     },
   },
-  
 };
 
 export default streamCommands;

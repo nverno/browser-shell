@@ -1,7 +1,6 @@
 import { Debug, isEmpty, sendMessage, pick, debugEnable } from '~utils';
-import { Command } from '~content/exec';
+import { Command, ArgsOrStdin, PipeEnv } from '~content/exec';
 import { Pipe } from '~content/io';
-import { ArgsOrStdin, PipeEnv } from '~content/exec/pipe';
 
 const debug = Debug('cmd:base');
 
@@ -29,6 +28,7 @@ export const baseCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
         });
       if (aliases.length > 0)
         stdout.write(`Aliases: ${aliases.join(", ")}`);
+      env.outputOpts.escapeHtml = false;
       stdout.close();
     }
   },
@@ -115,47 +115,6 @@ export const baseCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
       });
       stdout.close();
     }
-  },
-
-  grep: {
-    desc: "Search for lines matching a pattern",
-    help: [
-      "grep [-si] <pattern> ...rest - find matches for pattern in REST.",
-      "  Flags: i => ignore case, s => enclose matches in html span elements for highlighting",
-    ],
-    run: async (env, stdin, stdout, args) => {
-      debugger;
-      
-      const input = new ArgsOrStdin(env, stdin, args, {
-        name: 'grep',
-        requiredArgs: 1,
-        flags: 'si',
-      });
-      const [pattern] = await input.readRequired();
-      if (!pattern)
-        return env.fail('grep missing regexp pattern', stdout);
-
-      const highlight = input.flag('s');
-      const flags = (highlight ? 'g' : '') + (input.flag('i') ? 'i' : '');
-      const re = new RegExp(pattern, flags);
-
-      debug(`grep: re=${re}, highlight=${highlight}, flags=${flags}`);
-
-      let text: any;
-      while ((text = await input.read()) != null) {
-        String(text)
-          .split("\n")
-          .filter((line) => re.test(line))
-          .forEach(line => {
-            stdout.write(
-              highlight
-                ? line.replaceAll(re, (m) => `<span class="match">${m}</span>`)
-                : line
-            );
-          });
-      }
-      stdout.close();
-    },
   },
 
   // highlight: {

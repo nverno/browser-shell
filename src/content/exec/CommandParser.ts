@@ -6,7 +6,7 @@ import { ExecEnv } from './ExecEnv';
 export interface Command<T extends PipeBase, E = ExecEnv<T>> {
   desc: string;
   help?: string[],
-  run: (
+  run?: (
     env: E,
     stdin: Reader<T> | null,
     stdout: Writer<T>,

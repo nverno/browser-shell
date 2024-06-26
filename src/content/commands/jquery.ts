@@ -1,9 +1,7 @@
 import $ from "jquery";
-import { Command } from '~content/exec';
-import { ArgsOrStdin, PipeEnv } from "~content/exec/pipe";
+import { ArgsOrStdin, PipeEnv, Command } from '~content/exec';
 import { Pipe } from "~content/io";
-import { Debug } from '~utils';
-import { blinkElements } from "~utils/jquery";
+import { Debug, blinkElements } from '~utils';
 
 const debug = Debug('cmd:jquery');
 
@@ -69,7 +67,7 @@ export const jqueryCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
           }
         });
         if (attrs.length > 0)
-          stdout.write(attrs);
+          stdout.write(attrs.length === 1 ? attrs[0] : attrs);
       };
       stdout.close();
     }

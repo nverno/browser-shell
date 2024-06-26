@@ -97,6 +97,11 @@ body.terminal-iframe {
       }
     }
 
+    .match {
+      color: #69f;
+      text-decoration: underline;
+    }
+    
     .history-preview {
       color: #888888;
     }
