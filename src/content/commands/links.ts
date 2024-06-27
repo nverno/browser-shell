@@ -1,26 +1,10 @@
 import { randomLink, Debug, isString, newWindow, sendMessage } from '~utils';
-import { ArgsOrStdin, PipeEnv, Command } from '~content/exec';
-import { Pipe } from "~content/io";
+import { ArgsOrStdin, Commands } from '~content/exec';
 
 
 const debug = Debug('cmd:links');
 
-export const linkCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
-  open: {
-    desc: "Open links",
-    help: ["open - with no input opens random link"],
-    run: async (env, stdin, stdout, args) => {
-      if (!(stdin || args)) args = randomLink();
-      const input = new ArgsOrStdin(env, stdin, args);
-      let link: any;
-      while ((link = await input.read()) != null) {
-        stdout.write(link)
-        newWindow(link);
-      }
-      stdout.close();
-    },
-  },
-
+export const linkCommands: Commands = {
   expandlink: {
     desc: "Expand relative urls",
     run: async (env, stdin, stdout, args) => {
@@ -39,8 +23,29 @@ export const linkCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
     },
   },
   
+  open: {
+    desc: "Open links",
+    help: [
+      "open - with no input opens random link",
+      "open link - open LINK in new window",
+    ],
+    run: async (env, stdin, stdout, args) => {
+      if (!(stdin || args)) args = randomLink();
+      const input = new ArgsOrStdin(env, stdin, args);
+      let link: any;
+      while ((link = await input.read()) != null) {
+        stdout.write(link)
+        newWindow(link);
+      }
+      stdout.close();
+    },
+  },
+
   download: {
     desc: "Download uris",
+    help: [
+      "download uri - download URI, returning download id from background"
+    ],
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args);
       let url: any;

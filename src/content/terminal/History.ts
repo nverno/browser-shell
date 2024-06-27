@@ -3,14 +3,14 @@ import { Debug, IMessage, escapeAndLinkify, isNil, sendMessage, truncate } from 
 const debug = Debug('term:history');
 
 const DONT_RECORD = [
-  "_",
+  // "_",
 ].reduce((acc, s) => ({ [s]: true, ...acc }), {});
 
 
 /** 
  * Shell history management
  */
-export class History {
+export default class History {
   $textarea: JQuery<HTMLTextAreaElement>;
   $preview: JQuery<HTMLElement>;
   $promptInfo: JQuery<HTMLSpanElement>;
@@ -184,22 +184,20 @@ export class History {
   [Symbol.iterator]() {
     const history = this.history;
     const mask = this.filterMask;
-    let index = history.length - 1;
+    let index = 0;
     return {
       next() {
-        while (index >= 0) {
+        while (index < history.length) {
           if (isNil(mask) || mask[index]) {
             return {
-              value: { history: history[index], index: index-- },
+              value: { history: history[index], index: index++ },
               done: false
             };
           }
-          index--;
+          index++;
         }
         return { done: true };
       }
     }
   }
 };
-
-export default History;

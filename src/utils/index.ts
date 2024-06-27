@@ -14,3 +14,4 @@ export * from './as';
 export * from './jquery';
 export * from './dom';
 export * from './poll';
+export * from './format';

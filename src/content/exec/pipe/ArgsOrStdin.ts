@@ -134,7 +134,7 @@ export class ArgsOrStdin {
       let cur: any;
       while ((cur = await this.read()) != null) {
         debug('readFlags: cur=%s', cur);
-        if (!(cur.startsWith('-') && this.checkFlags(cur))) {
+        if (!(isString(cur) && cur.startsWith('-') && this.checkFlags(cur))) {
           debug(`readFlags: rejecting %s`, cur);
           this.args.unshift(cur);
           return;

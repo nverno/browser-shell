@@ -11,3 +11,24 @@ export const isKey = (kbd: string, e: KeyboardEvent) => {
     }
   });
 };
+
+export const handleDoubleClick = (id, doubleClickDelay = 300) => {
+  const element = document.getElementById(id);
+  if (element) {
+    let clickTimeout: number | null = null;
+    const dcHandler = (event: MouseEvent) => {
+      if (clickTimeout !== null) {
+        clearTimeout(clickTimeout);
+        clickTimeout = null;
+        console.log('Double-click detected');
+        element.removeEventListener('click', dcHandler);
+      } else {
+        clickTimeout = window.setTimeout(() => {
+          clickTimeout = null;
+          console.log('Single click detected');
+        }, doubleClickDelay);
+      }
+    };
+    element.addEventListener('click', dcHandler);
+  }
+};

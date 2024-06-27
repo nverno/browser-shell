@@ -1,13 +1,12 @@
 import $ from 'jquery';
-import { ArgsOrStdin, PipeEnv, Command } from '~content/exec';
-import { Pipe } from '~content/io';
+import { ArgsOrStdin, Commands } from '~content/exec';
 import { Debug, domain, newWindow } from '~utils';
 
 const debug = Debug('cmd:sites');
 
-export const siteCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
+export const siteCommands: Commands = {
   hn: {
-    desc: "Search hn",
+    desc: "Search hackernews",
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args);
       let query: any;
@@ -22,7 +21,8 @@ export const siteCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   bugmenot: {
-    desc: "Launch BugMeNot for this site, or the site passed",
+    desc: "Launch BugMeNot for current site",
+    help: ["bugmenot url - launch for URL"],
     run: async (env, stdin, stdout, args = domain()) => {
       env.terminal.hide();
       const input = new ArgsOrStdin(env, stdin, args);
@@ -37,7 +37,8 @@ export const siteCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   waybackmachine: {
-    desc: "Open page in Archive.org's Wayback Machine",
+    desc: "Open current site in Archive.org's Wayback Machine",
+    help: ["waybackmachine url - open for URL"],
     run: async (env, stdin, stdout, args) => {
       if (!(stdin || args)) args = domain();
       const input = new ArgsOrStdin(env, stdin, args);

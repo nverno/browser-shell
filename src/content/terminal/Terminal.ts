@@ -1,8 +1,8 @@
 import $ from 'jquery';
 import { isError } from 'lodash';
-import { deepMerge, escapeAndLinkify } from '~utils';
+import { escapeAndLinkify } from '~utils';
 import { commands, BrowserShell } from '~content';
-import { Commands, PipeExec, PipeEnv } from '~content/exec';
+import { PipeExec, PipeEnv, CommandsBase } from '~content/exec';
 import { TerminalWindow } from './TerminalWindow';
 import History from './History';
 
@@ -14,23 +14,27 @@ export const terminalOutputTypes = [
 ] as const;
 export type TerminalOutputType = typeof terminalOutputTypes[number];
 
-export type ITerminalOutputOpts = {
-  escapeHtml: boolean;
-  type: TerminalOutputType;
-  class: string;
+export type ITerminalOpts = {
+  escapeHTML: boolean;
+  outputType: TerminalOutputType;
+  pretty: boolean;
+  linkify: boolean;
 };
-export const terminalOutputDefaultOpts: Partial<ITerminalOutputOpts> = {
-  escapeHtml: true,
-  type: 'text',
-  class: 'output',
+export const terminalDefaultOpts: Partial<ITerminalOpts> = {
+  outputType: 'text',
+  pretty: false,
+  linkify: true,
+  escapeHTML: true,
 };
 
 export class Terminal {
   win: TerminalWindow;
   shell: BrowserShell;
   history: History;
-  bin: Commands<any> = commands as any;
+  bin: CommandsBase<any> = commands as any;
   alias: { [key: string]: string } = {};
+  opts: { [key: string]: any } = Object.assign({}, terminalDefaultOpts);
+  
   $body: JQuery<HTMLBodyElement>;
   $textarea: JQuery<HTMLTextAreaElement>;
   $output: JQuery<HTMLElement>;
@@ -55,7 +59,11 @@ export class Terminal {
     this.$textarea = this.$body.find("textarea");
     // Clicking anywhere on terminal focuses prompt
     // XXX(5/27/24): shouldn't keep focusing when trying to select/copy stuff
-    this.$body.on('click', () => this.focusPrompt());
+    const focusPrompt = () => {
+      this.focusPrompt();
+      this.$body.off('click', focusPrompt);
+    }
+    this.$body.on('click', focusPrompt);
     this.history = new History(this.$body);
     this.setupCommands();
     this.handleInput();
@@ -279,13 +287,12 @@ export class Terminal {
   }
 
   /** Write OUTPUT in terminal. */
-  write(output: any, cls?: string, opts = terminalOutputDefaultOpts) {
-    cls ||= opts.class;
-    switch(cls) {
+  write(output: any, cls: string, opts: Partial<ITerminalOpts> = {}) {
+    switch (opts.outputType || this.opts.outputType) {
       case 'html':
         this.$output
           .append((output as JQuery<HTMLElement>).html())
-          .addClass(opts.class);
+          .addClass(cls);
         break;
       case 'json':
       case 'object':
@@ -295,7 +302,9 @@ export class Terminal {
         output?.toString().split("\n").forEach((line) => {
           this.$output.append(
             $("<div class='item'></div>")
-              .html(opts.escapeHtml ? escapeAndLinkify(line) : line)
+              .html((opts.escapeHTML || this.opts.escapeHTML)
+                ? escapeAndLinkify(line)
+                : line)
               .addClass(cls)
           );
         });
@@ -336,24 +345,28 @@ export class Terminal {
       };
       this.$body.on("keydown", signalHandler);
 
-      const stream = parser.execute();
-      const outputLog: string[] = [];
+      try {
+        const stream = parser.execute();
+        const outputLog: string[] = [];
 
-      stream.onClose(async () => {
-        this.$body.off("keydown", signalHandler);
-        const res = await this.history.add(text, outputLog);
-        env.onCommandFinish.forEach((callback) => callback(res));
-        this.showPrompt();
-      });
+        stream.onClose(async () => {
+          this.$body.off("keydown", signalHandler);
+          const res = await this.history.add(text, outputLog);
+          env.onCommandFinish.forEach((callback) => callback(res));
+          this.showPrompt();
+        });
 
-      let data: any;
-      while (env.interrupted <= 1 && (data = await stream.read()) != null) {
-        this.write(data, env.outputOpts.class || 'output', env.outputOpts);
-        outputLog.push(data);
-        if (outputLog.length > MAX_OUTPUT_BUFFER)
-          outputLog.shift();
+        let data: any;
+        while (env.interrupted <= 1 && (data = await stream.read()) != null) {
+          this.write(data, 'output');
+          outputLog.push(data);
+          if (outputLog.length > MAX_OUTPUT_BUFFER)
+            outputLog.shift();
+        }
+        stream.close();
+      } catch (error) {
+        this.error(error);
       }
-      stream.close();
     }
   }
 };

@@ -1,30 +1,33 @@
+import { Commands, ArgsOrStdin } from '~content/exec';
+import { Debug } from '~utils';
 
-export const evalCommands = {
-  // eval: {
-  //   desc: "Eval javascript code",
-  //   run: (env, stdin, stdout, args) => {
-  //     stdout.onRead(() => {
-  //       env.argsOrStdin([args], stdin, (code) => {
-  //         stdout.write(eval(code));
-  //         stdout.closeWrite();
-  //       });
-  //     });
-  //   },
-  // },
+const debug = Debug('cmd:eval');
+
+
+export const evalCommands: Commands = {
+  eval: {
+    desc: "Eval javascript code",
+    run: async (env, stdin, stdout, args) => {
+      const code = await (new ArgsOrStdin(env, stdin, args)).readAll();
+      stdout.write(eval(code.join('\n')));
+      stdout.close();
+    },
+  },
 };
+export default evalCommands;
 
-// interface Command {
+// interface Commands {
 //   desc: string;
 //   run: (stdin: any, stdout: any, env: any, args: any) => void;
 // }
 
 // interface Commands {
 //   Terminal?: {
-//     eval?: Command;
+//     eval?: Commands;
 //   };
 // }
 
-// const evalCommand: Command = {
+// const evalCommand: Commands = {
 //   desc: "Run inline CoffeeScript",
 //   run: (stdin, stdout, env, args) => {
 
@@ -94,5 +97,3 @@ export const evalCommands = {
 //     });
 //   }
 // };
-
-export default evalCommands;

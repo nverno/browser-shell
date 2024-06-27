@@ -1,29 +1,34 @@
-import { ArgsOrStdin, PipeEnv, Command } from '~content/exec';
-import { Pipe } from '~content/io';
-import { Debug, isString, sitFor } from '~utils';
+import { ArgsOrStdin, Commands } from '~content/exec';
+import { Debug, isString, sitFor, sum } from '~utils';
 
 const debug = Debug('cmd:stream');
 
-export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
+export const streamCommands: Commands = {
   len: {
-    desc: 'Compute length of input (blocks)',
+    desc: 'Compute length of inputs',
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args);
-      const res = await input.readAll();
-      stdout.write(res.length > 1 ? res.length : res[0].length);
+      let cur: any;
+      while ((cur = await input.read()) != null) 
+        stdout.write(cur?.length || 0);
       stdout.close();
     }
   },
 
-  pause: {
-    desc: 'Pause stream',
+  sum: {
+    desc: 'Sum inputs',
+    run: async (env, stdin, stdout, args) => {
+      const input = await (new ArgsOrStdin(env, stdin, args)).readAll();
+      stdout.write(sum(...input));
+      stdout.close();
+    },
   },
 
   wc: {
-    desc: "Count newline, word, or bytes",
+    desc: "Count newline, word, or bytes for each input",
     help: [
       "wc [-lwcb] - count by lines, words, chars or bytes",
-      "  Flags: l=>lines(default), w=>words, c=>chars, b=>bytes"
+      "  Flags: l => lines(default), w => words, c => chars, b => bytes"
     ],
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args, {
@@ -52,7 +57,8 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   join: {
-    desc: "Join input (blocks)",
+    desc: "Join inputs",
+    help: ["join [sep=\n] - join inputs using SEP"],
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, null);
       const sep = args || "\n";
@@ -63,7 +69,8 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   split: {
-    desc: "Split input",
+    desc: "Split inputs",
+    help: ["split sep - split inputs by SEP"],
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, null);
       const sep = args ? new RegExp(args) : /\n+/;
@@ -77,7 +84,7 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   collect: {
-    desc: "Collect input into an array (blocks)",
+    desc: "Collect inputs into an array",
     run: async (env, stdin, stdout, args) => {
       const res = await (new ArgsOrStdin(env, stdin, args)).readAll();
       stdout.write(res);
@@ -86,7 +93,7 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   chunk: {
-    desc: "Accumulate input into chunks of size [n=5]",
+    desc: "Accumulate inputs into chunks of size [n=5]",
     run: async (env, stdin, stdout, args) => {
       const n = parseInt(args) || 5;
       const input = new ArgsOrStdin(env, stdin, null);
@@ -97,8 +104,49 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
     },
   },
 
+  head: {
+    desc: "Keep the first [n=5] elements",
+    alias: ["take"],
+    run: async (env, stdin, stdout, args) => {
+      const input = new ArgsOrStdin(env, stdin, null);
+      let cnt = parseInt(args) || 5, cur: any;
+      while (cnt-- > 0 && (cur = await input.read()) != null)
+        stdout.write(cur);
+      stdout.close();
+    },
+  },
+
+  tail: {
+    desc: "Keep the last [n=5] elements",
+    alias: ["last"],
+    run: async (env, stdin, stdout, args) => {
+      const input = new ArgsOrStdin(env, stdin, null);
+      let cnt = parseInt(args) || 5, cur: any;
+      const res = await input.readAll();
+      res.slice(-cnt).forEach(data => stdout.write(data));
+      stdout.close();
+    },
+  },
+
+  drop: {
+    desc: "Drop the first [n=5] elements",
+    run: async (env, stdin, stdout, args) => {
+      const input = new ArgsOrStdin(env, stdin, null);
+      let cnt = parseInt(args) || 5, cur: any;
+      while ((cur = await input.read()) != null) {
+        if (cnt-- <= 0)
+          stdout.write(cur);
+      }
+      stdout.close();
+    },
+  },
+
+  pause: {
+    desc: 'Pause stream (TODO)',
+  },
+
   wait: {
-    desc: "Wait for time [ms=2000] before sending",
+    desc: "Wait for [ms=2000]",
     run: async (env, stdin, stdout, args) => {
       const ms = parseInt(args) || 2000;
       debug('wait: %d', ms);
@@ -111,45 +159,8 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
     },
   },
 
-  head: {
-    desc: "Take the first [n=5] elements from stream",
-    alias: ["take"],
-    run: async (env, stdin, stdout, args) => {
-      const input = new ArgsOrStdin(env, stdin, null);
-      let cnt = parseInt(args) || 5, cur: any;
-      while (cnt-- > 0 && (cur = await input.read()) != null)
-        stdout.write(cur);
-      stdout.close();
-    },
-  },
-
-  tail: {
-    desc: "Take the last [n=5] elements (blocks)",
-    alias: ["last"],
-    run: async (env, stdin, stdout, args) => {
-      const input = new ArgsOrStdin(env, stdin, null);
-      let cnt = parseInt(args) || 5, cur: any;
-      const res = await input.readAll();
-      res.slice(-cnt).forEach(data => stdout.write(data));
-      stdout.close();
-    },
-  },
-
-  drop: {
-    desc: "Drop [n=0] elements",
-    run: async (env, stdin, stdout, args) => {
-      const input = new ArgsOrStdin(env, stdin, null);
-      let cnt = parseInt(args) || 5, cur: any;
-      while ((cur = await input.read()) != null) {
-        if (cnt-- <= 0)
-          stdout.write(cur);
-      }
-      stdout.close();
-    },
-  },
-
   uniq: {
-    desc: "Remove duplicates, keeping first",
+    desc: "Remove duplicates, keeping first duplicate",
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args);
       const seen = new Map();
@@ -165,7 +176,7 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   sort: {
-    desc: "Sort elements (blocks)",
+    desc: "Sort inputs",
     run: async (env, stdin, stdout, args) => {
       const res = await (new ArgsOrStdin(env, stdin, args)).readAll();
       res.sort();
@@ -175,7 +186,7 @@ export const streamCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   reverse: {
-    desc: "Reverse elements (blocks)",
+    desc: "Reverse inputs",
     run: async (env, stdin, stdout, args) => {
       const res = await (new ArgsOrStdin(env, stdin, args)).readAll();
       res.reverse();

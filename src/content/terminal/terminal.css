@@ -77,6 +77,8 @@ body.terminal-iframe {
       }
 
       .item {
+        display: flex;
+        flex-direction: row;
         line-height: 16px;
 
         a {
@@ -89,6 +91,7 @@ body.terminal-iframe {
 
         &.error {
           color: #E73E33;
+          font-style: oblique;
         }
 
         &.input {
@@ -97,13 +100,85 @@ body.terminal-iframe {
       }
     }
 
-    .match {
+    .history-preview {
+      color: #888888;
+    }
+
+
+    .bs-section {
+      font-weight: bold;
+    }
+    .bs-subsection {
+      font-style: italic;
+    }
+    .bs-col {
+      min-width: 9%;
+      margin-right: 10px;
+    }
+
+
+    .bs-match {
       color: #69f;
       text-decoration: underline;
     }
-    
-    .history-preview {
-      color: #888888;
+
+    .bs-keyword {
+      color: #fc4933;
+    }
+
+    .bs-alias {
+      color: #fe8019;
+      font-style: oblique;
+    }
+
+    .bs-usage {
+      padding-left: 20px;
+    }
+
+    .bs-type {
+      color: #d3869b;
+      font-style: oblique;
+    }
+
+    .bs-constant {
+      color: #d3869b;
+    }
+
+    .bs-variable {
+      color: #7fa1a0;
+    }
+
+    .bs-function {
+      color: #ffad20;
+    }
+
+    .bs-operator {
+      color: #fa6a4a;
+    }
+
+    .bs-escape {
+      color: #bf9ff0;
+    }
+
+    .bs-argument {
+      color: #78c;
+    }
+
+    .bs-doc {
+      color: #c9c059;
+    }
+
+    .bs-string {
+      color: #b8bb26;
+    }
+
+    .bs-property-use {
+      color: #f0c580;
+    }
+
+    .bs-variable-use {
+      color: #ecd098;
+      font-style: oblique;
     }
   }
 }

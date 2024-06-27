@@ -1,9 +1,10 @@
-import { PipeBase, Reader, Writer } from '~content/io';
+import { Pipe, PipeBase, Reader, Writer } from '~content/io';
 import { ExecEnv } from './ExecEnv';
+import { PipeEnv } from './pipe';
 // import { Debug } from '~utils';
 // const debug = Debug('parser');
 
-export interface Command<T extends PipeBase, E = ExecEnv<T>> {
+export interface CommandBase<T extends PipeBase, E = ExecEnv<T>> {
   desc: string;
   help?: string[],
   run?: (
@@ -14,7 +15,9 @@ export interface Command<T extends PipeBase, E = ExecEnv<T>> {
   ) => void | Promise<void>;
   alias?: string[];
 }
-export type Commands<T extends PipeBase, E = ExecEnv<T>> = { [key: string]: Command<T, E> }
+export type CommandsBase<T extends PipeBase, E = ExecEnv<T>> = { [key: string]: CommandBase<T, E> }
+export type Command = CommandBase<Pipe, PipeEnv>;
+export type Commands = CommandsBase<Pipe, PipeEnv>;
 
 /** Interface to parse and execute command lines */
 export interface CommandExec<E extends ExecEnv<PipeBase>> extends CommandParser<E> {
@@ -49,7 +52,7 @@ export class CommandParser<E extends ExecEnv<PipeBase>> {
     }
     return this.parsedCommands;
   }
-  
+
   // Check all commands are valid (replacing aliases with commands)
   isValid() {
     this.parse();

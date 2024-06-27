@@ -1,25 +1,24 @@
-import { ITerminalOutputOpts, Terminal, terminalOutputDefaultOpts, TerminalOutputType } from "~content/terminal";
-import { Commands } from '~content/exec';
-import { Debug } from '~utils';
+import { ITerminalOpts, Terminal } from "~content/terminal";
+import { CommandsBase } from '~content/exec';
+import { asArray, Debug, fmtWrap } from '~utils';
 import { PipeBase } from '~content/io';
 
 const debug = Debug('exec');
 
 
 export type ExecEnvOptions<T extends PipeBase> = Partial<
-  Pick<ExecEnv<T>, 'bin' | 'onCommandFinish' | 'helpers'>> & {
+  Pick<ExecEnv<T>, 'bin' | 'onCommandFinish'>> & {
     extendBin?: boolean
   };
-export type ExecEnvHelper = (...args: any[]) => void;
 
 /** Execution environment for shell commands */
 export class ExecEnv<T extends PipeBase> {
   terminal: Terminal;
-  bin: Commands<T>;
+  bin: CommandsBase<T>;
   pipes: T[] = [];
-  outputOpts: Partial<ITerminalOutputOpts> = terminalOutputDefaultOpts;
+  stderr: T;
+  termOpts: Partial<ITerminalOpts> = {};
   onCommandFinish: ((res: any) => void)[];
-  helpers: { [key: string]: ExecEnvHelper };
   timers: {
     [key: string | number]: [string, NodeJS.Timeout | string | number, T | null]
   } = {};
@@ -27,13 +26,21 @@ export class ExecEnv<T extends PipeBase> {
   interrupted = 0;
 
   constructor(terminal: Terminal, opts: ExecEnvOptions<T> = {}) {
-    const { bin = undefined, onCommandFinish = [], helpers = {}, extendBin = true } = opts;
+    const { bin = undefined, onCommandFinish = [], extendBin = true } = opts;
     this.terminal = terminal;
+    this.termOpts = terminal.opts;
     this.onCommandFinish = onCommandFinish;
-    this.helpers = helpers;
     this.bin = bin ? (
       extendBin ? Object.assign({}, this.terminal.bin, bin) : bin
     ) : this.terminal.bin;
+  }
+
+  // maybe prettify ELEM
+  pp(elem: any, cls: string, sep = ' ') { 
+    elem = asArray(elem);
+    return this.termOpts.pretty
+      ? fmtWrap(elem, cls, sep)
+      : elem.map(e => e.toString()).join(sep);
   }
 
   /** setInterval wrapper that registers interval */
@@ -81,16 +88,5 @@ export class ExecEnv<T extends PipeBase> {
       });
     }
     this.interrupted++;
-  }
-
-  whenTrue(condition: () => boolean, callback: () => void): void {
-    const go = () => {
-      if (condition()) {
-        callback();
-      } else {
-        this.setTimeout(go, 50);
-      }
-    };
-    go();
   }
 };

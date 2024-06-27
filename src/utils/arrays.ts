@@ -1,4 +1,6 @@
 
+export const sum = (...arr: any[]) => [...arr].reduce((acc, val) => acc + val, 0);
+
 export const pick = (
   obj: { [key: string]: any },
   arr: (string | number)[]
@@ -8,6 +10,9 @@ export const flatten = (arr, depth = 1) =>
   arr.reduce((a, v) =>
     a.concat(depth > 1 && Array.isArray(v)
       ? flatten(v, depth - 1) : v), []);
+
+export const randomIntArray = (min, max, n = 1) => Array
+  .from({ length: n }, () => Math.floor(Math.random() * (max - min + 1)) + min);
 
 // declare global {
 //   interface Array<T> {

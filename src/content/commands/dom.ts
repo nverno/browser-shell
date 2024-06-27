@@ -1,10 +1,10 @@
 import { Debug, sendMessage, evaluateXpath, domain, pollUntil } from '~utils';
-import { ArgsOrStdin, PipeEnv, Command } from '~content/exec';
-import { Pipe } from "~content/io";
+import { ArgsOrStdin, Commands } from '~content/exec';
+
 
 const debug = Debug('cmd:dom');
 
-export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
+export const domCommands: Commands = {
   domain: {
     desc: "Get Current domain",
     run: async (_env, _stdin, stdout, _args) => {
@@ -25,7 +25,7 @@ export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
 
   xpath: {
     desc: 'Run Xpath query',
-    help: ["xpath [path='//body'] - get nodes matching PATH"],
+    help: ["xpath [path=//body] - get nodes matching PATH"],
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args || '//body');
       let query: any;
@@ -41,7 +41,7 @@ export const domCommands: { [key: string]: Command<Pipe, PipeEnv> } = {
   },
 
   selectorgadget: {
-    desc: "Launch selectorGadget",
+    desc: "Launch SelectorGadget",
     run: async (env, stdin, stdout, args) => {
       await (new ArgsOrStdin(env, stdin, args)).readAll();
 

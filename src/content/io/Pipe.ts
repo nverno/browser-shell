@@ -159,30 +159,3 @@ export class Pipe<T = any> extends PipeBase<T> {
     return true;
   }
 };
-
-// let randomIntArray = (min, max, n = 1) => Array
-//   .from({ length: n }, () => Math.floor(Math.random() * (max - min + 1)) + min);
-
-// Example usage:
-// let pipe = new Pipe<number>();
-
-// Writer
-// let times = randomIntArray(1000, 10000, 3);
-// times.sort((a, b) => a - b);
-// for (let [i, ms] of times.entries()) {
-//   setTimeout(() => {
-//     pipe.write(i)
-//   }, ms);
-// }
-// setTimeout(() => pipe.close(), times[times.length - 1] + 500);
-
-// Reader
-// (async () => {
-//   try {
-//     console.log(await pipe.read()); // 1
-//     console.log(await pipe.read()); // 2
-//     console.log(await pipe.read()); // 3
-//   } catch (error) {
-//     console.error(error.message);
-//   }
-// })();

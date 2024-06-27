@@ -27,7 +27,11 @@ export class PipeExec extends CommandParser<PipeEnv> implements CommandExec<Exec
       pipe = new Pipe(`pipe<${cmd}.${idx++}>`);
       this.env.pipes.push(pipe);
       try {
-        run.call(this.env, this.env, stdin, pipe.openWriter(), args);
+        run.call(this.env, this.env, stdin, pipe.openWriter(), args)
+          .catch((error) => {
+            this.env.terminal.error(error);
+            this.env.interrupt(true);
+          });
       } catch (err) {
         console.error(err);
         this.env.terminal.error(err)
