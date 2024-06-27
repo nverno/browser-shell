@@ -5,7 +5,7 @@ export * from './keys';
 export * from './load';
 export * from './log';
 export * from './messages';
-export * from './utils';
+export * from './html';
 export * from './window';
 export * from './xpath';
 export * from './merge';

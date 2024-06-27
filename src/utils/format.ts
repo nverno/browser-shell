@@ -1,5 +1,9 @@
 
 
+export const truncate = (text: string, length: number): string => {
+  return text.length > length - 3 ? text.slice(0, length - 3) + "..." : text;
+};
+
 // Wrap ELEM in spans with class CLS, joining with SEP
 export function fmtWrap(elem: any[], cls: string, sep = ' ') {
   return elem

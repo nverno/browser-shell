@@ -24,8 +24,7 @@ export const terminalCommands: Commands = {
     alias: ['hist'],
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args);
-      // const decorate = input.flag('d');
-      
+
       if (args) {
         const idx = parseInt(args);
         stdout.write(env.terminal.history.get(idx)?.output);
@@ -54,8 +53,8 @@ export const terminalCommands: Commands = {
     desc: "Close the terminal",
     run: async (env, stdin, stdout) => {
       if (stdin) await stdin.readAll();
-      stdout.close();
       env.terminal.hide();
+      stdout.close();
     },
   },
 };

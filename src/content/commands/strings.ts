@@ -77,7 +77,7 @@ export const stringCommands: Commands = {
           });
       }
       if (pretty)
-        env.termOpts.escapeHTML = false;
+        env.termOpts.escape = false;
       stdout.close();
     },
   },

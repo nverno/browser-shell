@@ -53,18 +53,16 @@ export const baseCommands: Commands = {
   },
 
   tick: {
-    desc: "Read once every second",
-    help: ["tick [ms] - read once every MS millisecs"],
+    desc: "Read periodically",
+    help: ["tick [ms=400] - read once every MS millisecs"],
     run: async (env, stdin, stdout, args) => {
       if (stdin) {
-        const ms = parseInt(args) || 1000;
+        const ms = parseInt(args) || 400;
         let data: any;
         while ((data = await stdin.read()) != null) {
-          await new Promise((resolve) =>
-            env.setTimeout(() => {
-              stdout.write(data);
-              resolve(null);
-            }, ms, stdout.stream));
+          stdout.write(data);
+          await new Promise<void>((resolve) =>
+            env.setTimeout(() => resolve(), ms, stdout.stream));
         }
       }
       stdout.close();
@@ -72,38 +70,24 @@ export const baseCommands: Commands = {
   },
 
   yes: {
-    desc: "Emit newline every 200ms",
+    desc: 'Emit newlines at intervals',
     help: [
-      "yes [ms=200] - emit every MS millisecs",
+      "yes [ms=200] - emit newline every MS millisecs",
       "yes [ms=200] [text=\\n] - emit TEXT every MS millisecs"
     ],
     run: async (env, stdin, stdout, args) => {
       args = args?.split(' ') || []
       const ms = parseInt(args[0]) || 200;
       const text = args[1] || "\n";
-
-      const emit = async (data: any) => {
-        return new Promise((resolve, reject) => {
-          env.setTimeout(() => {
-            if (env.interrupted)
-              reject('yes interrupted');
-            else {
-              stdout.write(data);
-              resolve(null);
-            }
-          }, ms, stdout.stream);
+      const wait = async (): Promise<void> => {
+        return new Promise(resolve => {
+          env.setTimeout(() => resolve(), ms, stdout.stream);
         });
       };
-
-      while (!(env.interrupted > 0 || stdout.isClosed())) {
-        try {
-          const data = stdin ? await stdin.read() : text;
-          await emit(data);
-        } catch (error) {
-          env.terminal.error(error);
-          console.error(error);
-          break;
-        }
+      while (env.interrupted === 0 && !stdout.isClosed()) {
+        const data = (stdin && !stdin.isClosed()) ? await stdin.read() : text;
+        stdout.write(data);
+        await wait()
       }
       stdout.close();
     },
@@ -134,4 +118,5 @@ export const baseCommands: Commands = {
     },
   },
 };
+
 export default baseCommands;

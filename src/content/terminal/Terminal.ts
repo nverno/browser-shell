@@ -1,6 +1,6 @@
 import $ from 'jquery';
 import { isError } from 'lodash';
-import { escapeAndLinkify } from '~utils';
+import { escapeAndLinkify, escapeHTML } from '~utils';
 import { commands, BrowserShell } from '~content';
 import { PipeExec, PipeEnv, CommandsBase } from '~content/exec';
 import { TerminalWindow } from './TerminalWindow';
@@ -15,16 +15,16 @@ export const terminalOutputTypes = [
 export type TerminalOutputType = typeof terminalOutputTypes[number];
 
 export type ITerminalOpts = {
-  escapeHTML: boolean;
-  outputType: TerminalOutputType;
+  escape: boolean;
   pretty: boolean;
   linkify: boolean;
+  outputType: TerminalOutputType;
 };
 export const terminalDefaultOpts: Partial<ITerminalOpts> = {
   outputType: 'text',
   pretty: false,
   linkify: true,
-  escapeHTML: true,
+  escape: true,
 };
 
 export class Terminal {
@@ -34,7 +34,7 @@ export class Terminal {
   bin: CommandsBase<any> = commands as any;
   alias: { [key: string]: string } = {};
   opts: { [key: string]: any } = Object.assign({}, terminalDefaultOpts);
-  
+
   $body: JQuery<HTMLBodyElement>;
   $textarea: JQuery<HTMLTextAreaElement>;
   $output: JQuery<HTMLElement>;
@@ -288,7 +288,8 @@ export class Terminal {
 
   /** Write OUTPUT in terminal. */
   write(output: any, cls: string, opts: Partial<ITerminalOpts> = {}) {
-    switch (opts.outputType || this.opts.outputType) {
+    const { escape, linkify, outputType } = Object.assign({}, this.opts, opts);
+    switch (outputType) {
       case 'html':
         this.$output
           .append((output as JQuery<HTMLElement>).html())
@@ -302,11 +303,8 @@ export class Terminal {
         output?.toString().split("\n").forEach((line) => {
           this.$output.append(
             $("<div class='item'></div>")
-              .html((opts.escapeHTML || this.opts.escapeHTML)
-                ? escapeAndLinkify(line)
-                : line)
-              .addClass(cls)
-          );
+              .html(escapeAndLinkify(line, { escape, linkify }))
+              .addClass(cls));
         });
     }
     this.$output.scrollTop(this.$output[0].scrollHeight);

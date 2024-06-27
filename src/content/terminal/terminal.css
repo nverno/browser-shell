@@ -112,7 +112,8 @@ body.terminal-iframe {
       font-style: italic;
     }
     .bs-col {
-      min-width: 9%;
+      min-width: 120px;
+      width: 9%;
       margin-right: 10px;
     }
 
