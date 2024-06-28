@@ -6,7 +6,11 @@ const debug = Debug('cmd:base');
 export const baseCommands: Commands = {
   help: {
     desc: "Show help",
-    help: ["help [commands] - show help for COMMANDS"],
+    help: [
+      "help - show short descriptions for all commands",
+      "help commands... - show all help for COMMANDS",
+      "help -l - list commands",
+    ],
     run: async (env, stdin, stdout, args) => {
       if (args && args === '-l') {
         stdout.write(Object.keys(env.bin));
@@ -24,17 +28,20 @@ export const baseCommands: Commands = {
         .filter(([_, opts]: any) => opts.desc);
       cmds.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
 
+      const cls = details ? 'bs-detail' : 'bs-col';
       cmds.forEach(([cmd, opts]: any) => {
-        let doc = env.pp(cmd, 'bs-keyword');
+        let doc = env.pp(cmd, `bs-keyword ${cls}`);
         if (opts.alias?.length > 0)
           doc += ' (' + env.pp(opts.alias, 'bs-alias', ',') + ')';
         if (env.termOpts.pretty)
-          doc = `<div class="bs-col">${doc}</div>`;
-        doc += ` ${opts.desc}`;
-
-        if (details && opts.help)
-          doc += "\n<div class=\"bs-usage\">" + opts
-            .help.map(fmtHelp).join('\n') + '</div>';
+          doc = `<div class=\"${cls}\"">${doc}</div> <div class=\"bs-desc\">${opts.desc}</div>`;
+        else doc += ` ${opts.desc}`;
+        
+        if (details && opts.help?.length > 0)
+          doc += "\n" + (env.termOpts.pretty
+            ? (`<li class=\"${cls}\">` + opts.help.map(fmtHelp)
+              .join(`</li>\n<li class=\"${cls}\">`) + '</li>'
+            ) : opts.help.join('\n'));
         stdout.write(doc);
       });
       stdout.close();

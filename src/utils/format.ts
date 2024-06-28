@@ -12,6 +12,8 @@ export function fmtWrap(elem: any[], cls: string, sep = ' ') {
 }
 
 // Format help docs for pretty
+// FIXME: use single regex with multiple groups - have each row be
+// <>keyword</><>args</><>doc</> to space better
 const argRe = new RegExp(/\b[A-Z]+\b/, "g");
 const cmdRe = new RegExp(/^[a-z._]+/, 'i');
 const docRe = new RegExp(/ - .*/);

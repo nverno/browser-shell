@@ -132,8 +132,18 @@ body.terminal-iframe {
       font-style: oblique;
     }
 
-    .bs-usage {
-      padding-left: 20px;
+    /* The desc line */
+    .bs-desc {
+      margin-left: 8px;
+      color: #f9e4ee;
+    }
+
+    span.bs-detail {
+      /* padding-right: 10px; */
+      /* padding-left: 20px; */
+      /* span { */
+      /*   padding-left: 15px; */
+      /* } */
     }
 
     .bs-type {
