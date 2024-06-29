@@ -16,6 +16,33 @@ export const stringCommands: Commands = {
     },
   },
 
+  split: {
+    desc: "Split inputs",
+    help: ["split [sep=\\s*\\n+\\s*] - split inputs by SEP"],
+    run: async (env, stdin, stdout, args) => {
+      const input = new ArgsOrStdin(env, stdin, null);
+      const sep = args ? new RegExp(args) : /\s*\n+\s*/;
+      debug('split: sep=%s', sep);
+      let cur: any;
+      while ((cur = await input.read()) != null) {
+        cur.split(sep).forEach(line => stdout.write(line));
+      }
+      stdout.close();
+    },
+  },
+
+  join: {
+    desc: "Join inputs",
+    help: ["join [sep=\\n] - join inputs with SEP"],
+    run: async (env, stdin, stdout, args) => {
+      const input = new ArgsOrStdin(env, stdin, null);
+      const sep = args || "\n";
+      const res = await input.readAll();
+      stdout.write(res.join(sep));
+      stdout.close();
+    },
+  },
+
   gsub: {
     desc: "Search and replace regexp",
     help: [

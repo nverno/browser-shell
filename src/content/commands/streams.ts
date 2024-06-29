@@ -56,33 +56,6 @@ export const streamCommands: Commands = {
     },
   },
 
-  join: {
-    desc: "Join inputs",
-    help: ["join [sep=\n] - join inputs using SEP"],
-    run: async (env, stdin, stdout, args) => {
-      const input = new ArgsOrStdin(env, stdin, null);
-      const sep = args || "\n";
-      const res = await input.readAll();
-      stdout.write(res.join(sep));
-      stdout.close();
-    },
-  },
-
-  split: {
-    desc: "Split inputs",
-    help: ["split sep - split inputs by SEP"],
-    run: async (env, stdin, stdout, args) => {
-      const input = new ArgsOrStdin(env, stdin, null);
-      const sep = args ? new RegExp(args) : /\n+/;
-      debug('split: sep=%s', sep);
-      let cur: any;
-      while ((cur = await input.read()) != null) {
-        cur.split(sep).forEach(line => stdout.write(line));
-      }
-      stdout.close();
-    },
-  },
-
   collect: {
     desc: "Collect inputs into an array",
     run: async (env, stdin, stdout, args) => {
