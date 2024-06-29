@@ -5,7 +5,6 @@ import { Debug } from '~utils';
 
 const debug = Debug('exec:pipe');
 
-
 export class PipeExec extends CommandParser<PipeEnv> implements CommandExec<ExecEnv<Pipe>> {
   constructor(commandLine: string, env: PipeEnv) {
     super(commandLine, env);
@@ -22,14 +21,15 @@ export class PipeExec extends CommandParser<PipeEnv> implements CommandExec<Exec
     for (let i = 0; i < n; i++) {
       const [cmd, args] = this.parsedCommands[i];
       const cmdOpts = this.env.bin[cmd];
-      const run = cmdOpts.run || this.env.forward;
+      const run = cmdOpts.run || ((_env, stdin, stdout) => this.env.forward(stdin, stdout));
       const stdin = pipe ? pipe.openReader() : null;
       pipe = new Pipe(`pipe<${cmd}.${idx++}>`);
       this.env.pipes.push(pipe);
       try {
         run.call(this.env, this.env, stdin, pipe.openWriter(), args)
           .catch((error) => {
-            this.env.terminal.error(error);
+            console.error(error);
+            this.env.terminal.error([cmd, error]);
             this.env.interrupt(true);
           });
       } catch (err) {

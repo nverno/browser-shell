@@ -23,9 +23,16 @@ export const settingsCommands: Commands = {
         stdout.write(Object.entries(env.termOpts));
       } else {
         input.forEach(e => {
-          const [k, v] = e.split(':');
-          if (v)
+          let v: string, k: string;
+          if (['+', '-'].includes(e[0])) {
+            v = e[0];
+            k = e.slice(1);
+            env.termOpts[k] = v === '-' ? false : v === '+'
+              ? true : console.error(`bad setting ${v}`);
+          } else {
+            [k, v] = e.split(':');
             env.termOpts[k] = v === 'false' ? false : v === 'true' ? true : v;
+          }
           stdout.write([k, env.termOpts[k] || null]);
         })
       }

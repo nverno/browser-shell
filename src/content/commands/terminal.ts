@@ -4,6 +4,17 @@ import { Commands, ArgsOrStdin } from '~content/exec';
 const debug = Debug('cmd:term');
 
 export const terminalCommands: Commands = {
+  echo: {
+    desc: "Echo input to output",
+    run: async (env, stdin, stdout, args) => {
+      const input = new ArgsOrStdin(env, stdin, args);
+      let data: any;
+      while ((data = await input.read()) != null)
+        stdout.write(data);
+      stdout.close();
+    }
+  },
+
   _: {
     desc: "Access the previous command's output",
     run: async (env, stdin, stdout, args) => {
@@ -24,13 +35,16 @@ export const terminalCommands: Commands = {
     alias: ['hist'],
     run: async (env, stdin, stdout, args) => {
       const input = new ArgsOrStdin(env, stdin, args);
-
-      if (args) {
-        const idx = parseInt(args);
-        stdout.write(env.terminal.history.get(idx)?.output);
-      } else {
+      if (input.isClosed()) {
         for (const { history, index } of env.terminal.history)
           stdout.write(`[${index}] ${history.command}`);
+      } else {
+        let idx: any;
+        while ((idx = await input.read()) != null) {
+          idx = parseInt(idx);
+          if (idx)
+            stdout.write(env.terminal.history.get(idx)?.output);
+        }
       }
       stdout.close();
     }

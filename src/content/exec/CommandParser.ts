@@ -35,6 +35,7 @@ export class CommandParser<E extends ExecEnv<PipeBase>> {
     this.env = env;
   }
 
+  // TODO(7/9/24): Parsing to allow for localized settings (how??)
   // FIXME(5/30/24): dont split on '|' in strings
   parse() {
     if (this.parsedCommands.length === 0) {

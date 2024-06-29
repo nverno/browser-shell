@@ -1,4 +1,4 @@
-import { baseCommands } from './base';
+import { helpCommands } from './help';
 import { domCommands } from './dom';
 import { jqueryCommands } from './jquery';
 import { streamCommands } from './streams';
@@ -10,11 +10,13 @@ import { formatCommands } from './format';
 import { settingsCommands } from './settings';
 import { terminalCommands } from './terminal';
 import { backgroundCommands } from './background';
+import { intervalCommands } from './intervals';
+import { clipboardCommands } from './clipboard';
 
 export const commands = {
   ...settingsCommands,  
   ...terminalCommands,
-  ...baseCommands,
+  ...helpCommands,
   ...formatCommands,
   ...backgroundCommands,
   ...streamCommands,
@@ -24,4 +26,6 @@ export const commands = {
   ...domCommands,
   ...linkCommands,
   ...siteCommands,
+  ...intervalCommands,
+  ...clipboardCommands,
 };

@@ -13,7 +13,7 @@ export class PipeEnv extends ExecEnv<Pipe> {
   }
 
   /** Forward input from stdin to stdout */
-  async forward(stdin: null | Reader<Pipe> = null, stdout: Writer<Pipe>) {
+  async forward(stdin: null | Reader<Pipe>, stdout: Writer<Pipe>) {
     if (stdin) {
       let cur: any;
       while ((cur = await stdin.read()) != null)
