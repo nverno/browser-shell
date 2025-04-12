@@ -1,12 +1,12 @@
-SHELL   = /bin/bash
-TOP    := $(patsubst %/,%,$(abspath $(dir $(lastword $(MAKEFILE_LIST)))))
-TARGET  = dist
-PUBLIC  = public
-VENDOR  = $(PUBLIC)/vendor
-SRC     = $(shell find src -type f -regex '.*[.]\(ts\|js\|css\|html\)$$') \
-		$(wildcard *.html) \
+SHELL    = /bin/bash
+TOP     := $(patsubst %/,%,$(abspath $(dir $(lastword $(MAKEFILE_LIST)))))
+TARGET   = dist
+PUBLIC   = public
+VENDOR   = $(PUBLIC)/vendor
+SRC      = $(shell find src -type f -regex '.*[.]\(ts\|js\|css\|html\)$$') \
+		$(wildcard *.html)                                         \
 		manifest.config.ts package.json vite.config.js
-RUNNER  = bin/run.py
+RUNNER   = bin/run.py
 RUN_URL ?= https://example.com
 
 .PHONY: all build build-public install refresh-extension run
@@ -28,7 +28,7 @@ refresh-extension: ## Extensions Reloader endpoint
 	@google-chrome http://reload.extensions
 	$(info refreshed extensions)
 
-run: $(TARGET)  ## Load unpacked extension into new chromedriver session
+run: $(TARGET) ## Load unpacked extension into new chromedriver session
 	$(RUNNER) --path $(CURDIR)/$(TARGET) --url $(RUN_URL)
 
 

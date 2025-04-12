@@ -230,7 +230,8 @@ export class Terminal {
           this.history.show('next');
           break;
 
-        case "ArrowRight" || "ArrowLeft":
+        case "ArrowLeft":
+        case "ArrowRight":
           propagate = true;
           break;
 
